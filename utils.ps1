@@ -1,0 +1,183 @@
+# 
+# utils.ps1
+# Utility functions for Simple Hosting Installer.
+#
+# Author: Jiri Skoda <jiri.skoda@upce.cz>
+#         Faculty of Electrical Engineering
+#         University of Pardubice
+#         2024, Pardubice
+#
+
+<#
+    .SYNOPSIS
+        Prints text in predefined format.
+    .DESCRIPTION
+        Prints text with limitations defined by actual script constants
+        and with predefined format.
+#>
+function Print-Text{
+    param(
+
+        # Type of text (aka character defining type of text; some unicode emoji recommended here)
+        [Parameter(Mandatory = $true)]
+        [string]$type,
+
+        # Content of text itself.
+        [Parameter(Mandatory = $true)]
+        [string]$content,
+
+        [Parameter(Mandatory = $false)]
+        [ConsoleColor]$color = [ConsoleColor]::White
+    )
+
+    Write-Host -NoNewLine "$type "
+    $remainingWidth = $OutWidth - $type.Length - 1
+    $contentParts = $content -split '\s+'
+
+    $printedWidth = 0
+    foreach($part in $contentParts){
+        if(($printedWidth + $part.Length) -lt $remainingWidth){
+            Write-Host -ForegroundColor $color -NoNewLine "$part "
+            $printedWidth += $part.Length + 1
+        }
+        else {
+            Write-Host -ForegroundColor $color ""
+            Write-Host -ForegroundColor $color -NoNewLine (" " * ($type.Length + 1))
+            Write-Host -ForegroundColor $color -NoNewLine "$part "
+            $printedWidth = $part.Length + 1
+        }
+    }
+    Write-Host -ForegroundColor $color ""
+}
+
+<#
+    .SYNOPSIS
+        Prints one single process step.
+    .DESCRIPTION
+        Prints text of process step and leaves space for mark of progress of step.
+#>
+function Print-Process{
+    param(
+
+        # Text of process step.
+        [Parameter(Mandatory = $true)]
+        [string]$text
+    )
+
+    $end = "... "
+    $width = $OutWidth - ($end.Length + 1)
+    $text = "$text$end"
+    $parts = $text -split '\s+'
+    $curr = ""
+    $lines = @()
+    foreach($part in $parts){
+        if(($curr + $part).Length -le $width){
+            $curr += "$part "
+        }
+        else{
+            $lines += $curr.Trim()
+            $curr = "$part "
+        }
+    }
+    $lines += $curr.Trim()
+
+    for ($i = 0; $i -lt ($lines.Count - 2); $i++){
+        Write-Host $lines[$i]
+    }
+
+    $lines[0..($lines.Count - 2)] | ForEach-Object{
+        #Write-Host $_
+    }
+    Write-Host -NoNewLine $lines[-1]
+    $spaces = ($OutWidth - 1) - $lines[-1].Length
+    if ($spaces -gt 0){
+        for($i = 0; $i -lt $spaces; $i++){
+            Write-Host -NoNewLine " "
+        }
+    }
+    
+
+}
+
+<#
+    .SYNOPSIS
+        Prints elapsed time.
+    .DESCRIPTION
+        Prints elapsed time (stored in TimeSpan) in more human readable way.
+#>
+function Print-Elapsed{
+
+    param(
+
+        # Elapsed time which will be printed.
+        [Parameter(Mandatory = $true)]
+        [timespan]$time
+    )
+
+    if ($time.TotalSeconds -lt 60){
+        Write-Host ("{0:N2} seconds" -f $time.TotalSeconds)
+    }
+    elseif ($time.TotalMinutes -lt 60){
+        Write-Host ("{0:N0} minutes {1:N0} seconds" -f $time.TotalMinutes, $time.Seconds)
+    }
+    else{
+        Write-Host ("{0:N0} hours {1:N0} minutes {2:N0} seconds" -f $time.TotalHours, $time.Minutes, $time.Seconds)
+    }
+
+}
+
+<#
+    .SYNOPSIS
+        Ensures user to confirm actual action.
+    .DESCRIPTION
+        Reads users input. If it is 'yes' in any meaning, this function returns TRUE.
+        If read input is not 'yes' (or any similar input), this function returns FALSE.
+#>
+function Get-UserConfirmation{
+    $input = Read-Host " (yes/NO)"
+    $confirmation = $input.ToUpper() -eq "YES" -or $input.ToUpper() -eq "Y"
+    return $confirmation
+}
+
+<#
+    .SYNOPSIS
+        Exits script execution.
+    .DESCRIPTION
+        Exits script execution with provided details. Informs user about execution time,
+        exit message and exit code.
+#>
+function Exit-Script{
+    param(
+
+        # Date and time of start of execution of script.
+        [Parameter(Mandatory=$true)]
+        [datetime]$start,
+
+        # Exit code of script.
+        [Parameter(Mandatory=$true)]
+        [int]$code,
+
+        # Exit message of script.
+        [Parameter(Mandatory=$true)]
+        [string]$message
+    )
+
+    Write-Host ""
+    Write-Host $message
+    Write-Host ""
+
+    $end = Get-Date
+    $exec = $end - $start
+    Write-Host -NoNewLine "Script execution finished in: "
+    Print-Elapsed -time $exec
+    Write-Host -NoNewLine "Script exited with code: "
+    if ($code -eq 0){
+        Write-Host -NoNewLine "🟢 "
+    }
+    else{
+        Write-Host -NoNewLine "🔴 "
+    }
+    Write-Host $code
+
+    Exit $code
+}
