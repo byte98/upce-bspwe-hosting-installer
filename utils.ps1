@@ -181,3 +181,88 @@ function Exit-Script{
 
     Exit $code
 }
+
+<#
+    .SYNOPSIS
+        Executes a command.
+    .DESCRIPTION
+        Performs execution of command. If execution has been successfull,
+        returns TRUE, otherwise returns FALSE.
+#>
+function Execute-Command{
+
+    param(
+
+        # Command which will be executed.
+        [Parameter(Mandatory = $true)]
+        [string]$command,
+
+        # Session in which command will be executed.
+        [Parameter(Mandatory = $true)]
+        [System.Management.Automation.Runspaces.PSSession]$session
+    )
+
+    $reti = Invoke-Command -ErrorAction SilentlyContinue -Session $session -ScriptBlock {
+        param($cmd)
+        $res = Invoke-Expression -Command $cmd
+        $exit = $LASTEXITCODE
+        $exit
+    } -ArgumentList $command
+
+    return ($reti -eq 0)
+}
+
+<#
+    .SYNOPSIS
+        Requests execution of command.
+    .DESCRIPTION
+        Requests execution of passed command. If execution fails (eg. return value
+        of commaind is not 0), program exits with passed exit code and exit message.
+#>
+function Request-Command{
+
+    param(
+
+        # Description of command.
+        [Parameter(Mandatory = $true)]
+        [string]$description,
+
+        # Character displaying successfull execution of command.
+        [Parameter(Mandatory = $true)]
+        [string]$successStr,
+
+        # Character displaying fail of execution of command.
+        [Parameter(Mandatory = $true)]
+        [string]$failStr,
+
+        # Command which will be executed.
+        [Parameter(Mandatory = $true)]
+        [string]$command,
+
+        # Session in which command will be executed.
+        [Parameter(Mandatory = $true)]
+        [System.Management.Automation.Runspaces.PSSession]$session,
+
+        # Time of start of execution of script.
+        [Parameter(Mandatory = $true)]
+        [DateTime]$start,
+
+        # Exit code if command execution fails.
+        [Parameter(Mandatory = $true)]
+        [int]$exitCode,
+
+        # Exit message if command execution fails.
+        [Parameter(Mandatory = $true)]
+        [string]$exitMessage
+    )
+
+    Print-Process -text $description
+    if (Execute-Command -command $command -session $session){
+        Write-Host "$successStr"
+    }
+    else{
+        Write-Host "$failStr"
+        Remove-PSSession -Session $session
+        Exit-Script -start $start -code $exitCode -message $exitMessage
+    }
+}

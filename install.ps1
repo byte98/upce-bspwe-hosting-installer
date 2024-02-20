@@ -44,30 +44,6 @@ else
     Exit-Script -start $startTime -code 1 -message "❗️ ERROR: .NET installation was not found! Before continue, please, install .NET framework."
 }
 
-# Import Module Posh-SSH
-# 
-# EDIT: This module is no longer needed.    
-
-#Print-Process -text "Checking for module 'Posh-SSH'"
-#if (-not (Get-Module -ListAvailable -Name Posh-SSH)) {
-#    Write-Host $fail
-#    Print-Process -text "Tryiing to install module 'Posh-SSH"
-#    try {
-#        Install-Module -Name "Posh-SSH" -Force -ErrorAction Stop
-#        Write-Host $success
-#    }
-#    catch {
-#        Write-Host $fail
-#        Exit-Script -start $startTime -code 2 -message "❗️ ERROR: PowerShell module 'Posh-SSH' not found! Before continue, please, install this module manually."
-#    }
-#    
-#}
-#else{
-#    Write-Host $success
-#}
-#Import-Module Posh-SSH -UseWindowsPowerShell
-
-
 
 
 
@@ -110,67 +86,22 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
         Print-Text -type "ℹ️ " -content "Installer now needs SSH credentials for connecting to the server."
         $hostname = Read-Host -Prompt "Name or address of the server"
         $username = Read-Host -Prompt "Name of user with ROOT priviledges"
-        #$password = Read-Host -Prompt "Password of user $username" -AsSecureString
 
         # Create SSH connection
         Print-Process -text "Trying to connect to server"
-        #$credential = New-Object PSCredential ($username, $password)
-        #New-SSHSession -ComputerName $hostname -Credential $credential | Out-Null
         $session = New-PSSession -Hostname $hostname -Username $username
         if ($session){
             Write-Host $success
 
-            # Install Apache2 server
-            Print-Process "Installing Apache2 web server"
-            $apache = "dnf install httpd -y"
-            $apacheRes = Invoke-Command -ErrorAction SilentlyContinue -Session $session -ScriptBlock {
-                param($apache)
-                $result = Invoke-Expression -Command $apache
-                $exitCode = $LASTEXITCODE
-                $exitCode
-            } -ArgumentList $apache
-            if ($apacheRes -eq 0){ # Apache2 has been installed
-                Write-Host $success
-                Print-Process "Starting Apache2 web server"
-                $apaches = "systemctl start httpd.service"
-                $apachesRes = Invoke-Command -ErrorAction SilentlyContinue -Session $session -ScriptBlock {
-                    param($apaches)
-                    $result = Invoke-Expression -Command $apaches
-                    $exitCode = $LASTEXITCODE
-                    $exitCode
-                } -ArgumentList $apaches
-                if ($apachesRes -eq 0){ # Apache2 has been started
-                    Write-Host $success
-                    Print-Process "Configuring auto-start of Apache2"
-                    $apacheas = "systemctl enable httpd.service"
-                    $apacheasRes = Invoke-Command -ErrorAction SilentlyContinue -Session $session -ScriptBlock {
-                        param($apacheas)
-                        $result = Invoke-Expression -Command $apacheas
-                        $exitCode = $LASTEXITCODE
-                        $exitCode
-                    } -ArgumentList $apacheas
-                    if ($apacheasRes -eq 0){ # Apache2 will start automatically
-                        Write-Host $success
-                        Remove-PSSession -Session $session
-                        Exit-Script -start $startTime -code 0 -message "✅ Script successfully installed Simple Hosting application on server!"
-                    }
-                    else{
-                        Remove-PSSession -Session $session
-                        Write-Host $fail
-                        Exit-Script -start $startTime -code 22 -message "❗️ ERROR: Apache2 cannot be configured to auto-start!"
-                    }
-                }
-                else{
-                    Remove-PSSession -Session $session
-                    Write-Host $fail
-                    Exit-Script -start $startTime -code 21 -message "❗️ ERROR: Apache2 couldn't be started!"
-                }
-            }
-            else{
-                Remove-PSSession -Session $session
-                Write-Host $fail
-                Exit-Script -start $startTime -code 20 -message "❗️ ERROR: Installation of Apache2 failed!"
-            }
+            # Install required packages
+            Request-Command -description "Installing Apache2 web server" -command "dnf install httpd -y" -exitMessage "❗️ ERROR: Installation of Apache2 failed!" -exitCode 20 -session $session -start $startTime -successStr $success -failStr $fail 
+            
+            # Set up firewall
+            Request-Command -description "Allowing HTTP through firewall" -command "firewall-cmd --add-service=http --permanent" -exitMessage "❗️ ERROR: Cannot add serivce HTTP to the firewall!" -exitCode 30 -session $session -start $startTime -successStr $success -failStr $fail 
+            Request-Command -description "Allowing HTTPS through firewall" -command "firewall-cmd --add-service=https --permanent" -exitMessage "❗️ ERROR: Cannot add serivce HTTPS to the firewall!" -exitCode 31 -session $session -start $startTime -successStr $success -failStr $fail 
+            Request-Command -description "Restarting firewall" -command "firewall-cmd --reload" -exitMessage "❗️ ERROR: Restarting of firewall failed!" -exitCode 32 -session $session -start $startTime -successStr $success -failStr $fail 
+
+            Exit-Script -start $startTime -code 0 -message "✅ Script successfully installed Simple Hosting on the server."
         }
         else{
             Write-Host $fail
