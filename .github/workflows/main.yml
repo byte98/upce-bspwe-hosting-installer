@@ -12,7 +12,7 @@ jobs:
         uses: actions/checkout@v2
         
       - name: Create ZIP
-        run: zip -r sh-installer.zip *  -x .gitignore -x README.MD -x .gitmodules -x .github/\*
+        run: zip -r sh_installer.zip *  -x .gitignore -x README.MD -x .gitmodules -x .github/\*
 
       - name: Upload ZIP artifact
         uses: actions/upload-artifact@v2
