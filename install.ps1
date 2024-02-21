@@ -116,7 +116,7 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
             
             # Set up DNS
             Request-Command -description "Downloading configuration of web application" -command "wget -O /etc/named.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/named.conf.d" -exitMessage "❗️ ERROR: Configuration of DNS server couldn't be downloaded!" -exitCode 40 -session $session -start $startTime -successStr $success -failStr $fail 
-            Request-Command -description "Updating configuration" -command "sed -i 's/`${name}/$address/g' /etc/named/conf" -exitMessage "❗️ ERROR: Configuration of DNS server couldn't be updated!" -exitCode 41 -session $session -start $startTime -successStr $success -failStr $fail 
+            Request-Command -description "Updating configuration" -command "sed -i 's/`${name}/$address/g' /etc/named.conf" -exitMessage "❗️ ERROR: Configuration of DNS server couldn't be updated!" -exitCode 41 -session $session -start $startTime -successStr $success -failStr $fail 
             Request-Command -description "Granting DNS server permission to access directory" -command "chown -R named:named /etc/named" -exitMessage "❗️ ERROR: Cannot grant permission to named to access /etc/named!" -exitCode 31 -session $session -start $startTime -successStr $success -failStr $fail 
             
 
