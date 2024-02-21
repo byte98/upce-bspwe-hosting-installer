@@ -1,3 +1,5 @@
+#!/usr/bin/env pwsh
+
 # 
 # install.ps1
 # Installer of Simple Hosting application.
@@ -95,7 +97,9 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
 
             # Install required packages
             Request-Command -description "Installing Apache2 web server" -command "dnf install httpd -y" -exitMessage "❗️ ERROR: Installation of Apache2 failed!" -exitCode 20 -session $session -start $startTime -successStr $success -failStr $fail 
-            
+            Request-Command -description "Installing PHP processor" -command "dnf install httpd -y" -exitMessage "❗️ ERROR: Installation of PHP failed!" -exitCode 21 -session $session -start $startTime -successStr $success -failStr $fail
+            Request-Command -description "Installing PostgreSQL database" -command
+
             # Set up firewall
             Request-Command -description "Allowing HTTP through firewall" -command "firewall-cmd --add-service=http --permanent" -exitMessage "❗️ ERROR: Cannot add serivce HTTP to the firewall!" -exitCode 30 -session $session -start $startTime -successStr $success -failStr $fail 
             Request-Command -description "Allowing HTTPS through firewall" -command "firewall-cmd --add-service=https --permanent" -exitMessage "❗️ ERROR: Cannot add serivce HTTPS to the firewall!" -exitCode 31 -session $session -start $startTime -successStr $success -failStr $fail 
