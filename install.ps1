@@ -139,7 +139,7 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
 
             # Set up firewall
             Request-Command -description "Allowing HTTP through firewall" -command "firewall-cmd --add-service=http --permanent" -exitMessage "❗️ ERROR: Cannot add serivce HTTP to the firewall!" -exitCode 50 -session $session -start $startTime -successStr $success -failStr $fail 
-            Request-Command -description "Allowing HTTPS through firewall" -command "firewall-cmd --add-servtice=https --permanent" -exitMessage "❗️ ERROR: Cannot add serivce HTTPS to the firewall!" -exitCode 51 -session $session -start $startTime -successStr $success -failStr $fail 
+            Request-Command -description "Allowing HTTPS through firewall" -command "firewall-cmd --add-service=https --permanent" -exitMessage "❗️ ERROR: Cannot add serivce HTTPS to the firewall!" -exitCode 51 -session $session -start $startTime -successStr $success -failStr $fail 
             Request-Command -description "Allowing DNS through firewall" -command "firewall-cmd --add-service=dns --permanent" -exitMessage "❗️ ERROR: Cannot add serivce DNS to the firewall!" -exitCode 52 -session $session -start $startTime -successStr $success -failStr $fail 
             Request-Command -description "Restarting firewall" -command "firewall-cmd --reload" -exitMessage "❗️ ERROR: Restarting of firewall failed!" -exitCode 53 -session $session -start $startTime -successStr $success -failStr $fail 
 
