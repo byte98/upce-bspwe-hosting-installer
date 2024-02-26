@@ -143,7 +143,7 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
             Request-Command -description "Allowing DNS through firewall" -command "firewall-cmd --add-service=dns --permanent" -exitMessage "❗️ ERROR: Cannot add serivce DNS to the firewall!" -exitCode 52 -session $session -start $startTime -successStr $success -failStr $fail 
             Request-Command -description "Restarting firewall" -command "firewall-cmd --reload" -exitMessage "❗️ ERROR: Restarting of firewall failed!" -exitCode 53 -session $session -start $startTime -successStr $success -failStr $fail 
 
-            # Set up services 
+            # Set up services
             Request-Command -description "Starting HTTPd service" -command "systemctl start httpd.service" -exitMessage "❗️ ERROR: Starting of httpd service failed!" -exitCode 60 -session $session -start $startTime -successStr $success -failStr $fail
             Request-Command -description "Configuring auto-start of HTTPd service" -command "systemctl enable httpd.service" -exitMessage "❗️ ERROR: Configuring of auto-start of httpd service failed!" -exitCode 61 -session $session -start $startTime -successStr $success -failStr $fail
             Request-Command -description "Restarting HTTPd service" -command "systemctl restart httpd.service" -exitMessage "❗️ ERROR: Restarting of httpd service failed!" -exitCode 62 -session $session -start $startTime -successStr $success -failStr $fail
