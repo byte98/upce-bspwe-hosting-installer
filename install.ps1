@@ -94,7 +94,14 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
 
         # Create SSH connection
         Print-Process -text "Trying to connect to server"
-        $session = New-PSSession -Hostname $hostname -Username $username
+        $session = $false
+        try{
+            $session = New-PSSession -Hostname $hostname -Username $username -ErrorAction SilentlyContinue | Out-Null
+        }
+        catch{
+            Write-Host $fail
+            Exit-Script -start $startTime -code 11 -message "❗️ ERROR: SSH connection failed!"
+        }
         if ($session){
             Write-Host $success
 
@@ -112,7 +119,8 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
             # Install required packages
             Request-Command -description "Installing Apache2 web server" -command "dnf install httpd -y" -exitMessage "❗️ ERROR: Installation of Apache2 failed!" -exitCode 20 -session $session -start $startTime -successStr $success -failStr $fail 
             Request-Command -description "Installing DNS server" -command "dnf install bind bind-utils -y" -exitMessage "❗️ ERROR: Installation of DNS server failed!" -exitCode 21 -session $session -start $startTime -successStr $success -failStr $fail 
-            
+            Request-Command -description "Installing Let's Encrypt certbot" -command "dnf install certbot" -exitMessage "❗️ ERROR: Installation of certbot server failed!" -exitCode 22 -session $session -start $startTime -successStr $success -failStr $fail 
+
             #Request-Command -description "Installing PHP processor" -command "dnf install httpd -y" -exitMessage "❗️ ERROR: Installation of PHP failed!" -exitCode 21 -session $session -start $startTime -successStr $success -failStr $fail
             #Request-Command -description "Installing PostgreSQL database" -command
 
