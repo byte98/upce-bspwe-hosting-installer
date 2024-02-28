@@ -115,16 +115,16 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
             # Install required packages
             Request-Command -description "Installing Apache2 web server" -command "dnf install httpd -y" -exitMessage "❗️ ERROR: Installation of Apache2 failed!" -exitCode 20 -session $session -start $startTime -successStr $success -failStr $fail 
             Request-Command -description "Installing DNS server" -command "dnf install bind bind-utils -y" -exitMessage "❗️ ERROR: Installation of DNS server failed!" -exitCode 21 -session $session -start $startTime -successStr $success -failStr $fail 
-            Request-Command -description "Installing application store" -command "dnf install snapd -y" -exitMessage "❗️ ERROR: Installation of Snap Store failed!" -exitCode 22 -session $session -start $startTime -successStr $success -failStr $fail 
-            Print-Text -type "ℹ️ " -content "Installer now restarts server. After reboot, please press enter." 
-            Print-Process -text "Restarting server"
-            (Invoke-Command -Session $session -ScriptBlock {Invoke-Expression -Command "reboot"} -ErrorAction SilentlyContinue) | Out-Null
-            Write-Host $unknown
-            Print-Text -type "  " -content "Press enter when server is running..." -color DarkGray
-            Read-Host
-            Print-Process -text "Trying to reconnect to server"
-            ($session = New-PSSession -Hostname $hostname -Username $username) | Out-Null
-            if ($session){
+            #Request-Command -description "Installing application store" -command "dnf install snapd -y" -exitMessage "❗️ ERROR: Installation of Snap Store failed!" -exitCode 22 -session $session -start $startTime -successStr $success -failStr $fail 
+            #Print-Text -type "ℹ️ " -content "Installer now restarts server. After reboot, please press enter." 
+            #Print-Process -text "Restarting server"
+            #(Invoke-Command -Session $session -ScriptBlock {Invoke-Expression -Command "reboot"} -ErrorAction SilentlyContinue) | Out-Null
+            #Write-Host $unknown
+            #Print-Text -type "  " -content "Press enter when server is running..." -color DarkGray
+            #Read-Host
+            #Print-Process -text "Trying to reconnect to server"
+            #($session = New-PSSession -Hostname $hostname -Username $username) | Out-Null
+            #if ($session){
                 Write-Host $success
                 Request-Command -description "Installing certification utility" -command "rm -r -f /snap && rm -r -f /usr/bin/certbot && ln -s /var/lib/snapd/snap /snap && snap install --classic certbot && ln -s /snap/bin/certbot /usr/bin/certbot" -exitMessage "❗️ ERROR: Installation of Let's Encrypt certbot failed!" -exitCode 24 -session $session -start $startTime -successStr $success -failStr $fail 
                 #Request-Command -description "Installing SSL ceritfication utility" -command "dnf install certbot -y" -exitMessage "❗️ ERROR: Installation of Let's Encrypt certbot failed!" -exitCode 22 -session $session -start $startTime -successStr $success -failStr $fail 
@@ -142,54 +142,62 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
                 Request-Command -description "Updating configuration (1/2)" -command "sed -i 's#`${www}#$WWWHome#g' /etc/httpd/conf/httpd.conf" -exitCode 32 -exitMessage "❗️ ERROR: Configuration of web server cannot be updated!" -session $session -start $startTime -successStr $success -failStr $fail 
                 Request-Command -description "Updating configuration (2/2)" -command "sed -i 's#`${admin}#$admin#g' /etc/httpd/conf/httpd.conf" -exitCode 33 -exitMessage "❗️ ERROR: Configuration of web server cannot be updated!" -session $session -start $startTime -successStr $success -failStr $fail 
                 Request-Command -description "Disabling 'Welcome' page" -command "sed -i '/^[^#]/ s/^/# /' /etc/httpd/conf.d/welcome.conf" -exitCode 34 -exitMessage "❗️ ERROR: 'Welcome' page cannot be disabled!" -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Downloading configuration of Simple Hosting web page" -command "wget -O /etc/httpd/conf.d/$address.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/root.conf" -exitCode 35 -exitMessage "❗️ ERROR: Downloading of configuration of main page failed!" -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Updating configuration (1/3)" -command "sed -i 's#`${admin}#$admin#g' /etc/httpd/conf.d/$address.conf" -exitCode 36 -exitMessage "❗️ ERROR: Configuration of Simple Hosting web page cannot be updated!" -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Updating configuration (2/3)" -command "sed -i 's#`${www}#$WWWHome#g' /etc/httpd/conf.d/$address.conf" -exitCode 37 -exitMessage "❗️ ERROR: Configuration of Simple Hosting web page cannot be updated!" -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Updating configuration (3/3)" -command "sed -i 's#`${name}#$address#g' /etc/httpd/conf.d/$address.conf" -exitCode 38 -exitMessage "❗️ ERROR: Configuration of Simple Hosting web page cannot be updated!" -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Restarting web server" -command "systemctl restart httpd" -exitCode 39 "❗️ ERROR: Apache2 web server cannot be restarted!" -session $session -start $startTime -successStr $success -failStr $fail 
+                # Set up web server modules
+                Request-Command -description "Installing SSL module for web server" -command "dnf install mod_ssl -y" -exitCode 40 "❗️ ERROR: Installation of 'mod_ssl' for Apache web server failed!" -session $session -start $startTime -successStr $success -failStr $fail 
 
                 # Set up web application            
-                Request-Command -description "Deleting default content of direcotry for web application" -command "rm -r -f $WWWHome" -exitMessage "❗️ ERROR: Directory for web application couldn't be deleted!" -exitCode 40 -session $session -start $startTime -successStr $success -failStr $fail 
-                Request-Command -description "Creating directory for web application" -command "mkdir -p $WWWHome" -exitMessage "❗️ ERROR: Directory for web application couldn't be created!" -exitCode 41 -session $session -start $startTime -successStr $success -failStr $fail 
-                Request-Command -description "Granting web server permission to access directory" -command "chown -R apache:apache $WWWHome" -exitMessage "❗️ ERROR: Cannot grant permission to Apache to access $WWWHome!" -exitCode 42 -session $session -start $startTime -successStr $success -failStr $fail 
-                Request-Command -description "Downloading application" -command "wget -O $WWWHome/simple_hosting.zip https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/simple_hosting.zip" -exitMessage "❗️ ERROR: Application couldn't be downloaded!" -exitCode 43 -session $session -start $startTime -successStr $success -failStr $fail 
-                Request-Command -description "Unzipping content" -command "unzip -o $WWWHome/simple_hosting.zip -d $WWWHome" -exitMessage "❗️ ERROR: Unzipping application failed!" -exitCode 44 -session $session -start $startTime -successStr $success -failStr $fail 
-                Request-Command -description "Deleting downloaded content" -command "rm -f $WWWHome/simple_hosting.zip" -exitMessage "❗️ ERROR: Downloaded content cannot be deleted!" -exitCode 45 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Deleting default content of direcotry for web application" -command "rm -r -f $WWWHome" -exitMessage "❗️ ERROR: Directory for web application couldn't be deleted!" -exitCode 50 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Creating directory for web application" -command "mkdir -p $WWWHome" -exitMessage "❗️ ERROR: Directory for web application couldn't be created!" -exitCode 51 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Granting web server permission to access directory" -command "chown -R apache:apache $WWWHome" -exitMessage "❗️ ERROR: Cannot grant permission to Apache to access $WWWHome!" -exitCode 52 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Downloading application" -command "wget -O $WWWHome/simple_hosting.zip https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/simple_hosting.zip" -exitMessage "❗️ ERROR: Application couldn't be downloaded!" -exitCode 53 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Unzipping content" -command "unzip -o $WWWHome/simple_hosting.zip -d $WWWHome" -exitMessage "❗️ ERROR: Unzipping application failed!" -exitCode 54 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Deleting downloaded content" -command "rm -f $WWWHome/simple_hosting.zip" -exitMessage "❗️ ERROR: Downloaded content cannot be deleted!" -exitCode 55 -session $session -start $startTime -successStr $success -failStr $fail 
                 
                 # Set up HTTPS
-                Request-Command -description "Generating HTTPS certificates" -command "certbot --apache" -exitCode 50 -exitMessage "❗️ ERROR: Let's Encrypt certbot action failed!" -session $session -start $startTime -successStr $success -failStr $fail 
-                if (-not (Execute-Command -command "crontab -l | grep ' */12 * * * certbot renew'" -session $session)){
-                    # Cron job is not configured
-                    Request-Command -description "Configuring auto-renewal of certificates" -command "crontab -l > tmp && echo '0 */12 * * * certbot renew' >> tmp && crontab tmp && rm -f tmp" -exitCode 51 -exitMessage "❗️ ERROR: Cannot configure Cron job for certificates auto-renewal!" -session $session -start $startTime -successStr $success -failStr $fail 
-                }
-                else{
-                    # Cron job is already configured
-                    Print-Text -type "ℹ️ " -content "Cron job for certificate renewal is already set."
-                }
+                #Write-Host "certbot run -n --apache -d $address,www.$address -m $admin --redirect --agree-tos"
+                #Request-Command -description "Generating HTTPS certificates" -command "certbot run -n --apache -d $address,www.$address -m $admin --redirect --agree-tos" -exitCode 60 -exitMessage "❗️ ERROR: Let's Encrypt certbot action failed!" -session $session -start $startTime -successStr $success -failStr $fail 
+                #if (-not (Execute-Command -command "crontab -l | grep ' */12 * * * certbot renew'" -session $session)){
+                #    # Cron job is not configured
+                #    Request-Command -description "Configuring auto-renewal of certificates" -command "crontab -l > tmp && echo '0 */12 * * * certbot renew' >> tmp && crontab tmp && rm -f tmp" -exitCode 61 -exitMessage "❗️ ERROR: Cannot configure Cron job for certificates auto-renewal!" -session $session -start $startTime -successStr $success -failStr $fail 
+                #}
+                #else{
+                #    # Cron job is already configured
+                #    Print-Text -type "ℹ️ " -content "Cron job for certificate renewal is already set."
+                #}
 
                 # Set up DNS
-                Request-Command -description "Downloading configuration of DNS server" -command "wget -O /etc/named.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/named.conf.d" -exitMessage "❗️ ERROR: Configuration of DNS server couldn't be downloaded!" -exitCode 60 -session $session -start $startTime -successStr $success -failStr $fail 
-                Request-Command -description "Updating configuration (1/3)" -command "sed -i 's/`${name}/$address/g' /etc/named.conf" -exitMessage "❗️ ERROR: Configuration of DNS server couldn't be updated!" -exitCode 61 -session $session -start $startTime -successStr $success -failStr $fail 
-                Request-Command -description "Updating configuration (2/3)" -command "sed -i 's/`${domain}/$address/g' /etc/named.conf" -exitMessage "❗️ ERROR: Configuration of DNS server couldn't be updated!" -exitCode 62 -session $session -start $startTime -successStr $success -failStr $fail 
-                Request-Command -description "Updating configuration (3/3)" -command "sed -i 's/`${ip}/$ip/g' /etc/named.conf" -exitMessage "❗️ ERROR: Configuration of DNS server couldn't be updated!" -exitCode 63 -session $session -start $startTime -successStr $success -failStr $fail 
-                Request-Command -description "Granting DNS server permission to access directory" -command "chown -R named:named /etc/named" -exitMessage "❗️ ERROR: Cannot grant permission to named to access /etc/named!" -exitCode 64 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Downloading configuration of DNS server" -command "wget -O /etc/named.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/named.conf.d" -exitMessage "❗️ ERROR: Configuration of DNS server couldn't be downloaded!" -exitCode 70 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Updating configuration (1/3)" -command "sed -i 's/`${name}/$address/g' /etc/named.conf" -exitMessage "❗️ ERROR: Configuration of DNS server couldn't be updated!" -exitCode 71 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Updating configuration (2/3)" -command "sed -i 's/`${domain}/$address/g' /etc/named.conf" -exitMessage "❗️ ERROR: Configuration of DNS server couldn't be updated!" -exitCode 72 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Updating configuration (3/3)" -command "sed -i 's/`${ip}/$ip/g' /etc/named.conf" -exitMessage "❗️ ERROR: Configuration of DNS server couldn't be updated!" -exitCode 73 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Granting DNS server permission to access directory" -command "chown -R named:named /etc/named" -exitMessage "❗️ ERROR: Cannot grant permission to named to access /etc/named!" -exitCode 74 -session $session -start $startTime -successStr $success -failStr $fail 
 
                 # Set up firewall
-                Request-Command -description "Allowing HTTP through firewall" -command "firewall-cmd --add-service=http --permanent" -exitMessage "❗️ ERROR: Cannot add serivce HTTP to the firewall!" -exitCode 70 -session $session -start $startTime -successStr $success -failStr $fail 
-                Request-Command -description "Allowing HTTPS through firewall" -command "firewall-cmd --add-service=https --permanent" -exitMessage "❗️ ERROR: Cannot add serivce HTTPS to the firewall!" -exitCode 71 -session $session -start $startTime -successStr $success -failStr $fail 
-                Request-Command -description "Allowing DNS through firewall" -command "firewall-cmd --add-service=dns --permanent" -exitMessage "❗️ ERROR: Cannot add serivce DNS to the firewall!" -exitCode 72 -session $session -start $startTime -successStr $success -failStr $fail 
-                Request-Command -description "Restarting firewall" -command "firewall-cmd --reload" -exitMessage "❗️ ERROR: Restarting of firewall failed!" -exitCode 73 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Allowing HTTP through firewall" -command "firewall-cmd --add-service=http --permanent" -exitMessage "❗️ ERROR: Cannot add serivce HTTP to the firewall!" -exitCode 80 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Allowing HTTPS through firewall" -command "firewall-cmd --add-service=https --permanent" -exitMessage "❗️ ERROR: Cannot add serivce HTTPS to the firewall!" -exitCode 81 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Allowing DNS through firewall" -command "firewall-cmd --add-service=dns --permanent" -exitMessage "❗️ ERROR: Cannot add serivce DNS to the firewall!" -exitCode 82 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Restarting firewall" -command "firewall-cmd --reload" -exitMessage "❗️ ERROR: Restarting of firewall failed!" -exitCode 83 -session $session -start $startTime -successStr $success -failStr $fail 
 
                 # Set up services
-                Request-Command -description "Starting HTTPd service" -command "systemctl start httpd.service" -exitMessage "❗️ ERROR: Starting of httpd service failed!" -exitCode 80 -session $session -start $startTime -successStr $success -failStr $fail
-                Request-Command -description "Configuring auto-start of HTTPd service" -command "systemctl enable httpd.service" -exitMessage "❗️ ERROR: Configuring of auto-start of httpd service failed!" -exitCode 81 -session $session -start $startTime -successStr $success -failStr $fail
-                Request-Command -description "Restarting HTTPd service" -command "systemctl restart httpd.service" -exitMessage "❗️ ERROR: Restarting of httpd service failed!" -exitCode 82 -session $session -start $startTime -successStr $success -failStr $fail
-                Request-Command -description "Starting DNS service" -command "systemctl start named.service" -exitMessage "❗️ ERROR: Starting of named service failed!" -exitCode 83 -session $session -start $startTime -successStr $success -failStr $fail
-                Request-Command -description "Configuring auto-start of DNS service" -command "systemctl enable named.service" -exitMessage "❗️ ERROR: Configuring of auto-start of named service failed!" -exitCode 84 -session $session -start $startTime -successStr $success -failStr $fail
-                Request-Command -description "Restarting DNS service" -command "systemctl restart named.service" -exitMessage "❗️ ERROR: Restarting of named service failed!" -exitCode 85 -session $session -start $startTime -successStr $success -failStr $fail
+                Request-Command -description "Starting HTTPd service" -command "systemctl start httpd.service" -exitMessage "❗️ ERROR: Starting of httpd service failed!" -exitCode 90 -session $session -start $startTime -successStr $success -failStr $fail
+                Request-Command -description "Configuring auto-start of HTTPd service" -command "systemctl enable httpd.service" -exitMessage "❗️ ERROR: Configuring of auto-start of httpd service failed!" -exitCode 91 -session $session -start $startTime -successStr $success -failStr $fail
+                Request-Command -description "Restarting HTTPd service" -command "systemctl restart httpd.service" -exitMessage "❗️ ERROR: Restarting of httpd service failed!" -exitCode 92 -session $session -start $startTime -successStr $success -failStr $fail
+                Request-Command -description "Starting DNS service" -command "systemctl start named.service" -exitMessage "❗️ ERROR: Starting of named service failed!" -exitCode 93 -session $session -start $startTime -successStr $success -failStr $fail
+                Request-Command -description "Configuring auto-start of DNS service" -command "systemctl enable named.service" -exitMessage "❗️ ERROR: Configuring of auto-start of named service failed!" -exitCode 94 -session $session -start $startTime -successStr $success -failStr $fail
+                Request-Command -description "Restarting DNS service" -command "systemctl restart named.service" -exitMessage "❗️ ERROR: Restarting of named service failed!" -exitCode 95 -session $session -start $startTime -successStr $success -failStr $fail
 
                 Remove-PSSession -Session $session
                 Exit-Script -start $startTime -code 0 -message "✅ Script successfully installed Simple Hosting on the server."
-            }
-            else{
-                Write-Host $fail
-                Exit-Script -start $startTime -code 23 -message "❗️ ERROR: SSH reconnection failed!"
-            }
+            #}
+            #else{
+            #    Write-Host $fail
+            #    Exit-Script -start $startTime -code 23 -message "❗️ ERROR: SSH reconnection failed!"
+            #}
         }
         else{
             Write-Host $fail
