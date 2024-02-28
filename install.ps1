@@ -126,7 +126,7 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
             ($session = New-PSSession -Hostname $hostname -Username $username) | Out-Null
             if ($session){
                 Write-Host $success
-                Request-Command -description "Installing certification utility" -command "ln -s /var/lib/snapd/snap /snap && snap install --classic certbot && ln -s /snap/bin/certbot /usr/bin/certbot" -exitMessage "❗️ ERROR: Installation of Let's Encrypt certbot failed!" -exitCode 24 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Installing certification utility" -command "rm -r -f /snap && rm -r -f /usr/bin/certbot && ln -s /var/lib/snapd/snap /snap && snap install --classic certbot && ln -s /snap/bin/certbot /usr/bin/certbot" -exitMessage "❗️ ERROR: Installation of Let's Encrypt certbot failed!" -exitCode 24 -session $session -start $startTime -successStr $success -failStr $fail 
                 #Request-Command -description "Installing SSL ceritfication utility" -command "dnf install certbot -y" -exitMessage "❗️ ERROR: Installation of Let's Encrypt certbot failed!" -exitCode 22 -session $session -start $startTime -successStr $success -failStr $fail 
 
                 #Request-Command -description "Installing PHP processor" -command "dnf install httpd -y" -exitMessage "❗️ ERROR: Installation of PHP failed!" -exitCode 21 -session $session -start $startTime -successStr $success -failStr $fail
@@ -134,12 +134,14 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
 
                 # Set up web server
                 Print-Text -type "ℹ️ " -content "Installer now configures Apache2 web server."
-                $address = Read-Host -Prompt "Enter name of server (example: www.example.com)"
+                $address = Read-Host -Prompt "Enter name of server (example: contoso.com)"
+                $admin = Read-Host -Prompt "Enter e-mail address of administrator of server (example: admin@contoso.com)"
                 $conffile = "/etc/httpd/conf.d/$address.conf"
                 Request-Command -description "Deleting default configuration" -command "rm -f /etc/httpd/conf/httpd.conf" -exitCode 30 -exitMessage "❗️ ERROR: Default configuration cannot be deleted!" -session $session -start $startTime -successStr $success -failStr $fail 
                 Request-Command -description "Downloading configuration of web server" -command "wget -O /etc/httpd/conf/httpd.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/httpd.conf" -exitMessage "❗️ ERROR: Download of web server configuration failed!" -exitCode 31 -session $session -start $startTime -successStr $success -failStr $fail 
-                Request-Command -description "Updating configuration" -command "sed -i 's#`${www}#$WWWHome#g' /etc/httpd/conf/httpd.conf" -exitCode 32 -exitMessage "❗️ ERROR: Configuration of web server cannot be updated!" -session $session -start $startTime -successStr $success -failStr $fail 
-                Request-Command -description "Disabling 'Welcome' page" -command "sed -i '/^[^#]/ s/^/# /' /etc/httpd/conf.d/welcome.conf" -exitCode 33 -exitMessage "❗️ ERROR: 'Welcome' page cannot be disabled!" -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Updating configuration (1/2)" -command "sed -i 's#`${www}#$WWWHome#g' /etc/httpd/conf/httpd.conf" -exitCode 32 -exitMessage "❗️ ERROR: Configuration of web server cannot be updated!" -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Updating configuration (2/2)" -command "sed -i 's#`${admin}#$admin#g' /etc/httpd/conf/httpd.conf" -exitCode 33 -exitMessage "❗️ ERROR: Configuration of web server cannot be updated!" -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Disabling 'Welcome' page" -command "sed -i '/^[^#]/ s/^/# /' /etc/httpd/conf.d/welcome.conf" -exitCode 34 -exitMessage "❗️ ERROR: 'Welcome' page cannot be disabled!" -session $session -start $startTime -successStr $success -failStr $fail 
 
                 # Set up web application            
                 Request-Command -description "Deleting default content of direcotry for web application" -command "rm -r -f $WWWHome" -exitMessage "❗️ ERROR: Directory for web application couldn't be deleted!" -exitCode 40 -session $session -start $startTime -successStr $success -failStr $fail 
