@@ -170,26 +170,72 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
                 #    Print-Text -type "ℹ️ " -content "Cron job for certificate renewal is already set."
                 #}
 
+                # Set up HTTPS
+                Print-Text -type "ℹ️ " -content "Installer now installs and configure own CA."
+                ##    Get basic information
+                $org = Read-Host -Prompt "Enter name of organization (example: Contoso)"
+                $un = Read-Host -Prompt "Enter name of unit of organization (example: IT department)"
+                $cn = Read-Host -Prompt "Enter code of country (example: US)"
+                $st = Read-Host -Prompt "Enter name of state or province (example: California)"
+                $pl = Read-Host -Prompt "Enter name of locality (example: Los Angeles)"
+                $orgName = $organization -replace '\s', '' -replace '\W', '' -tolower
+                $pkiName = "pki_$orgName"
+                $caPath = "/etc/$pkiName/CA"
+
+                ##    Get password
+                $pwd = ""
+                $pwda = ""
+                do{
+                    $p1 = Read-Host "Enter passphrase of CA certificate" -AsSecureString
+                    $p2 = Read-Host "Enter passphrase once again" -AsSecureString
+
+                    $pwd = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($p1))
+                    $pwda = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($p2))
+
+                    if (-ne $pwd $pwda){
+                        Print-Text -type "⛔️ " -content "Entered passwords does not match. Please, try it again."
+                    }
+                }
+                while (-ne $pwd $pwda)
+
+                ##    Create directories
+                Request-Command -description "Creating directory for CA" -command "mkdir -p -m 0755 /etc/$pkiName" -exitMessage "❗️ ERROR: Directory for CA couldn't be created!" -exitCode 60 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Creating directory tree for CA" -command "mkdir -p -m 0755 $caPath $caPath/private $caPath/certs $caPath/newcerts $caPath/crl" -exitMessage "❗️ ERROR: Directory tree for CA couldn't be created!" -exitCode 61 -session $session -start $startTime -successStr $success -failStr $fail 
+
+                ##    Copy configuration
+                Request-Command -description "Setting up initial configuration (1/2)" -command "cp /etc/pki/tls/openssl.cnf $caPath/openssl.default.cnf && chmod 0600 $caPath/openssl.default.cnf" -exitMessage "❗️ ERROR: Initializiation of configuration of CA failed!" -exitCode 62 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Setting up initial configuration (2/2)" -command "touch $caPath/index.txt && echo '01' > $caPath/serial" -exitMessage "❗️ ERROR: Initializiation of configuration of CA failed!" -exitCode 63 -session $session -start $startTime -successStr $success -failStr $fail 
+
+                ##    Create CA certificate
+                Request-Command -description "Creating CA certificate" -command "openssl req -config $caPath/openssl.default.cnf -new -x509 -extensions v3_ca -keyout $caPath/private/ca.key -out $caPath/certs/ca.crt -days 1825 -subj '/C=$cn/ST=$st/L=$pl/O=$org/OU=$un/CN=$address' -pass pass:$pwd" -exitMessage "❗️ ERROR: CA certificate couldn't be created!" -exitCode 64 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Chaning permissions to certificates" -command "chmod 0400 $caPath/private/ca.key" -exitMessage "❗️ ERROR: Permisions of certificate file couldn't be changed!" -exitCode 65 -session $session -start $startTime -successStr $success -failStr $fail 
+                
+                ##    Create server certificate
+                Request-Command -description "Downloading server certificates configuration" -command "wget -O $caPath/openssl.server.cnf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/ssl.conf" -exitMessage "❗️ ERROR: Downloading of server certificates configuration failed!" -exitCode 66 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Updating confiugration" -command "sed -i 's#`${caPath}#$caPath#g' /$caPath/openssl.server.cnf" -exitMessage "❗️ ERROR: Configuration of server certificates could'nt be updated." -exitCode 67 -session $session -start $startTime -successStr $success -failStr $fail 
+
+                Request-Command -description "Granting web server permission to use certificates" -command "chown root.apache $caPath/private/server.key && chmod 0440 $caPath/server.key" -exitMessage "❗️ ERROR: Permission to Apache couldn't be granted!" -exitCode 65 -session $session -start $startTime -successStr $success -failStr $fail 
+
                 # Set up DNS
-                Request-Command -description "Downloading configuration of DNS server" -command "wget -O /etc/named.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/named.conf.d" -exitMessage "❗️ ERROR: Configuration of DNS server couldn't be downloaded!" -exitCode 70 -session $session -start $startTime -successStr $success -failStr $fail 
-                Request-Command -description "Updating configuration (1/3)" -command "sed -i 's/`${name}/$address/g' /etc/named.conf" -exitMessage "❗️ ERROR: Configuration of DNS server couldn't be updated!" -exitCode 71 -session $session -start $startTime -successStr $success -failStr $fail 
-                Request-Command -description "Updating configuration (2/3)" -command "sed -i 's/`${domain}/$address/g' /etc/named.conf" -exitMessage "❗️ ERROR: Configuration of DNS server couldn't be updated!" -exitCode 72 -session $session -start $startTime -successStr $success -failStr $fail 
-                Request-Command -description "Updating configuration (3/3)" -command "sed -i 's/`${ip}/$ip/g' /etc/named.conf" -exitMessage "❗️ ERROR: Configuration of DNS server couldn't be updated!" -exitCode 73 -session $session -start $startTime -successStr $success -failStr $fail 
-                Request-Command -description "Granting DNS server permission to access directory" -command "chown -R named:named /etc/named" -exitMessage "❗️ ERROR: Cannot grant permission to named to access /etc/named!" -exitCode 74 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Downloading configuration of DNS server" -command "wget -O /etc/named.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/named.conf.d" -exitMessage "❗️ ERROR: Configuration of DNS server couldn't be downloaded!" -exitCode 80 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Updating configuration (1/3)" -command "sed -i 's/`${name}/$address/g' /etc/named.conf" -exitMessage "❗️ ERROR: Configuration of DNS server couldn't be updated!" -exitCode 81 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Updating configuration (2/3)" -command "sed -i 's/`${domain}/$address/g' /etc/named.conf" -exitMessage "❗️ ERROR: Configuration of DNS server couldn't be updated!" -exitCode 82 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Updating configuration (3/3)" -command "sed -i 's/`${ip}/$ip/g' /etc/named.conf" -exitMessage "❗️ ERROR: Configuration of DNS server couldn't be updated!" -exitCode 83 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Granting DNS server permission to access directory" -command "chown -R named:named /etc/named" -exitMessage "❗️ ERROR: Cannot grant permission to named to access /etc/named!" -exitCode 84 -session $session -start $startTime -successStr $success -failStr $fail 
 
                 # Set up firewall
-                Request-Command -description "Allowing HTTP through firewall" -command "firewall-cmd --add-service=http --permanent" -exitMessage "❗️ ERROR: Cannot add serivce HTTP to the firewall!" -exitCode 80 -session $session -start $startTime -successStr $success -failStr $fail 
-                Request-Command -description "Allowing HTTPS through firewall" -command "firewall-cmd --add-service=https --permanent" -exitMessage "❗️ ERROR: Cannot add serivce HTTPS to the firewall!" -exitCode 81 -session $session -start $startTime -successStr $success -failStr $fail 
-                Request-Command -description "Allowing DNS through firewall" -command "firewall-cmd --add-service=dns --permanent" -exitMessage "❗️ ERROR: Cannot add serivce DNS to the firewall!" -exitCode 82 -session $session -start $startTime -successStr $success -failStr $fail 
-                Request-Command -description "Restarting firewall" -command "firewall-cmd --reload" -exitMessage "❗️ ERROR: Restarting of firewall failed!" -exitCode 83 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Allowing HTTP through firewall" -command "firewall-cmd --add-service=http --permanent" -exitMessage "❗️ ERROR: Cannot add serivce HTTP to the firewall!" -exitCode 90 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Allowing HTTPS through firewall" -command "firewall-cmd --add-service=https --permanent" -exitMessage "❗️ ERROR: Cannot add serivce HTTPS to the firewall!" -exitCode 91 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Allowing DNS through firewall" -command "firewall-cmd --add-service=dns --permanent" -exitMessage "❗️ ERROR: Cannot add serivce DNS to the firewall!" -exitCode 92 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Restarting firewall" -command "firewall-cmd --reload" -exitMessage "❗️ ERROR: Restarting of firewall failed!" -exitCode 93 -session $session -start $startTime -successStr $success -failStr $fail 
 
                 # Set up services
-                Request-Command -description "Starting HTTPd service" -command "systemctl start httpd.service" -exitMessage "❗️ ERROR: Starting of httpd service failed!" -exitCode 90 -session $session -start $startTime -successStr $success -failStr $fail
-                Request-Command -description "Configuring auto-start of HTTPd service" -command "systemctl enable httpd.service" -exitMessage "❗️ ERROR: Configuring of auto-start of httpd service failed!" -exitCode 91 -session $session -start $startTime -successStr $success -failStr $fail
-                Request-Command -description "Restarting HTTPd service" -command "systemctl restart httpd.service" -exitMessage "❗️ ERROR: Restarting of httpd service failed!" -exitCode 92 -session $session -start $startTime -successStr $success -failStr $fail
-                Request-Command -description "Starting DNS service" -command "systemctl start named.service" -exitMessage "❗️ ERROR: Starting of named service failed!" -exitCode 93 -session $session -start $startTime -successStr $success -failStr $fail
-                Request-Command -description "Configuring auto-start of DNS service" -command "systemctl enable named.service" -exitMessage "❗️ ERROR: Configuring of auto-start of named service failed!" -exitCode 94 -session $session -start $startTime -successStr $success -failStr $fail
-                Request-Command -description "Restarting DNS service" -command "systemctl restart named.service" -exitMessage "❗️ ERROR: Restarting of named service failed!" -exitCode 95 -session $session -start $startTime -successStr $success -failStr $fail
+                Request-Command -description "Starting HTTPd service" -command "systemctl start httpd.service" -exitMessage "❗️ ERROR: Starting of httpd service failed!" -exitCode 100 -session $session -start $startTime -successStr $success -failStr $fail
+                Request-Command -description "Configuring auto-start of HTTPd service" -command "systemctl enable httpd.service" -exitMessage "❗️ ERROR: Configuring of auto-start of httpd service failed!" -exitCode 101 -session $session -start $startTime -successStr $success -failStr $fail
+                Request-Command -description "Restarting HTTPd service" -command "systemctl restart httpd.service" -exitMessage "❗️ ERROR: Restarting of httpd service failed!" -exitCode 102 -session $session -start $startTime -successStr $success -failStr $fail
+                Request-Command -description "Starting DNS service" -command "systemctl start named.service" -exitMessage "❗️ ERROR: Starting of named service failed!" -exitCode 103 -session $session -start $startTime -successStr $success -failStr $fail
+                Request-Command -description "Configuring auto-start of DNS service" -command "systemctl enable named.service" -exitMessage "❗️ ERROR: Configuring of auto-start of named service failed!" -exitCode 104 -session $session -start $startTime -successStr $success -failStr $fail
+                Request-Command -description "Restarting DNS service" -command "systemctl restart named.service" -exitMessage "❗️ ERROR: Restarting of named service failed!" -exitCode 105 -session $session -start $startTime -successStr $success -failStr $fail
 
                 Remove-PSSession -Session $session
                 Exit-Script -start $startTime -code 0 -message "✅ Script successfully installed Simple Hosting on the server."
