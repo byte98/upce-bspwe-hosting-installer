@@ -125,8 +125,8 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
             #Print-Process -text "Trying to reconnect to server"
             #($session = New-PSSession -Hostname $hostname -Username $username) | Out-Null
             #if ($session){
-                Write-Host $success
-                Request-Command -description "Installing certification utility" -command "rm -r -f /snap && rm -r -f /usr/bin/certbot && ln -s /var/lib/snapd/snap /snap && snap install --classic certbot && ln -s /snap/bin/certbot /usr/bin/certbot" -exitMessage "❗️ ERROR: Installation of Let's Encrypt certbot failed!" -exitCode 24 -session $session -start $startTime -successStr $success -failStr $fail 
+                #Write-Host $success
+                #Request-Command -description "Installing certification utility" -command "rm -r -f /snap && rm -r -f /usr/bin/certbot && ln -s /var/lib/snapd/snap /snap && snap install --classic certbot && ln -s /snap/bin/certbot /usr/bin/certbot" -exitMessage "❗️ ERROR: Installation of Let's Encrypt certbot failed!" -exitCode 24 -session $session -start $startTime -successStr $success -failStr $fail 
                 #Request-Command -description "Installing SSL ceritfication utility" -command "dnf install certbot -y" -exitMessage "❗️ ERROR: Installation of Let's Encrypt certbot failed!" -exitCode 22 -session $session -start $startTime -successStr $success -failStr $fail 
 
                 #Request-Command -description "Installing PHP processor" -command "dnf install httpd -y" -exitMessage "❗️ ERROR: Installation of PHP failed!" -exitCode 21 -session $session -start $startTime -successStr $success -failStr $fail
@@ -178,25 +178,25 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
                 $cn = Read-Host -Prompt "Enter code of country (example: US)"
                 $st = Read-Host -Prompt "Enter name of state or province (example: California)"
                 $pl = Read-Host -Prompt "Enter name of locality (example: Los Angeles)"
-                $orgName = $organization -replace '\s', '' -replace '\W', '' -tolower
+                $orgName = $org -replace '\s', '' -replace '\W', '' 
+                $orgName = $orgName.ToLower()
                 $pkiName = "pki_$orgName"
                 $caPath = "/etc/$pkiName/CA"
 
                 ##    Get password
-                $pwd = ""
-                $pwda = ""
                 do{
                     $p1 = Read-Host "Enter passphrase of CA certificate" -AsSecureString
                     $p2 = Read-Host "Enter passphrase once again" -AsSecureString
 
-                    $pwd = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($p1))
-                    $pwda = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($p2))
-
-                    if (-ne $pwd $pwda){
+                    $pt1 = (New-Object PSCredential 0, $p1).GetNetworkCredential().Password
+                    $pt2 = (New-Object PSCredential 0, $p2).GetNetworkCredential().Password
+                    
+                    if ($pt1 -ne $pt2){
                         Print-Text -type "⛔️ " -content "Entered passwords does not match. Please, try it again."
                     }
                 }
-                while (-ne $pwd $pwda)
+                while ($pt1 -ne $pt2)
+                $pwd = $pt1
 
                 ##    Create directories
                 Request-Command -description "Creating directory for CA" -command "mkdir -p -m 0755 /etc/$pkiName" -exitMessage "❗️ ERROR: Directory for CA couldn't be created!" -exitCode 60 -session $session -start $startTime -successStr $success -failStr $fail 
@@ -207,14 +207,14 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
                 Request-Command -description "Setting up initial configuration (2/2)" -command "touch $caPath/index.txt && echo '01' > $caPath/serial" -exitMessage "❗️ ERROR: Initializiation of configuration of CA failed!" -exitCode 63 -session $session -start $startTime -successStr $success -failStr $fail 
 
                 ##    Create CA certificate
-                Request-Command -description "Creating CA certificate" -command "openssl req -config $caPath/openssl.default.cnf -new -x509 -extensions v3_ca -keyout $caPath/private/ca.key -out $caPath/certs/ca.crt -days 1825 -subj '/C=$cn/ST=$st/L=$pl/O=$org/OU=$un/CN=$address' -pass pass:$pwd" -exitMessage "❗️ ERROR: CA certificate couldn't be created!" -exitCode 64 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Creating CA certificate" -command "openssl req -config $caPath/openssl.default.cnf -new -x509 -extensions v3_ca -keyout $caPath/private/ca.key -out $caPath/certs/ca.crt -days 1825 -subj '/C=$cn/ST=$st/L=$pl/O=$org/OU=$un/CN=$address' -passout 'pass:$pwd'" -exitMessage "❗️ ERROR: CA certificate couldn't be created!" -exitCode 64 -session $session -start $startTime -successStr $success -failStr $fail 
                 Request-Command -description "Chaning permissions to certificates" -command "chmod 0400 $caPath/private/ca.key" -exitMessage "❗️ ERROR: Permisions of certificate file couldn't be changed!" -exitCode 65 -session $session -start $startTime -successStr $success -failStr $fail 
                 
                 ##    Create server certificate
-                Request-Command -description "Downloading server certificates configuration" -command "wget -O $caPath/openssl.server.cnf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/ssl.onf" -exitMessage "❗️ ERROR: Downloading of server certificates configuration failed!" -exitCode 66 -session $session -start $startTime -successStr $success -failStr $fail 
+                Request-Command -description "Downloading server certificates configuration" -command "wget -O $caPath/openssl.server.cnf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/ssl.cnf" -exitMessage "❗️ ERROR: Downloading of server certificates configuration failed!" -exitCode 66 -session $session -start $startTime -successStr $success -failStr $fail 
                 Request-Command -description "Updating confiugration" -command "sed -i 's#`${caPath}#$caPath#g' /$caPath/openssl.server.cnf" -exitMessage "❗️ ERROR: Configuration of server certificates could'nt be updated." -exitCode 67 -session $session -start $startTime -successStr $success -failStr $fail 
 
-                Request-Command -description "Granting web server permission to use certificates" -command "chown root.apache $caPath/private/server.key && chmod 0440 $caPath/server.key" -exitMessage "❗️ ERROR: Permission to Apache couldn't be granted!" -exitCode 65 -session $session -start $startTime -successStr $success -failStr $fail 
+               # Request-Command -description "Granting web server permission to use certificates" -command "chown root.apache $caPath/private/server.key && chmod 0440 $caPath/server.key" -exitMessage "❗️ ERROR: Permission to Apache couldn't be granted!" -exitCode 65 -session $session -start $startTime -successStr $success -failStr $fail 
 
                 # Set up DNS
                 Request-Command -description "Downloading configuration of DNS server" -command "wget -O /etc/named.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/named.conf.d" -exitMessage "❗️ ERROR: Configuration of DNS server couldn't be downloaded!" -exitCode 80 -session $session -start $startTime -successStr $success -failStr $fail 
