@@ -202,9 +202,7 @@ function Execute-Command{
         [System.Management.Automation.Runspaces.PSSession]$session
     )
 
-    Write-Host $command
-
-    $reti = Invoke-Command  -Session $session -ScriptBlock {
+    $reti = Invoke-Command -ErrorAction SilentlyContinue -Session $session -ScriptBlock {
         param($cmd)
         $res = Invoke-Expression -Command $cmd
         $exit = $LASTEXITCODE

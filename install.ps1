@@ -92,7 +92,7 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
 
         # Gather connection details
         Print-Text -type "ℹ️ " -content "Installer now needs SSH credentials for connecting to the server."
-        $hostname = Read-Host -Prompt "Name or address of the server"
+        $hostname = Read-Host -Prompt "Name or address of the server     "
         $username = Read-Host -Prompt "Name of user with ROOT priviledges"
 
         # Create SSH connection
@@ -103,13 +103,13 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
             Print-Text -type "ℹ️ " -content "Installer requires some additional information."
 
             # Gather additional information
-            $address =  Read-Host -Prompt "Enter name of domain (example: contoso.com)"
-            $admin =    Read-Host -Prompt "Enter e-mail address of administrator of server (example: admin@contoso.com)"
-            $org =      Read-Host -Prompt "Enter name of organization (example: Contoso)"
-            $un =       Read-Host -Prompt "Enter name of unit of organization (example: IT department)"
-            $cn =       Read-Host -Prompt "Enter code of country (example: US)"
-            $st =       Read-Host -Prompt "Enter name of state or province (example: California)"
-            $pl =       Read-Host -Prompt "Enter name of locality (example: Los Angeles)"
+            $address =  Read-Host -Prompt "Name of domain (example: contoso.com)                                 "
+            $admin =    Read-Host -Prompt "E-mail address of administrator of server (example: admin@contoso.com)"
+            $org =      Read-Host -Prompt "Name of organization (example: Contoso)                               "
+            $un =       Read-Host -Prompt "Name of unit of organization (example: IT department)                 "
+            $cn =       Read-Host -Prompt "Code of country (example: US)                                         "
+            $st =       Read-Host -Prompt "Name of state or province (example: California)                       "
+            $pl =       Read-Host -Prompt "Name of locality (example: Los Angeles)                               "
             $orgName =  $org -replace '\s', '' -replace '\W', '' 
             $orgName =  $orgName.ToLower()
             $pkiName =  "pki_$orgName"
@@ -135,28 +135,27 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
             )
 
             # Set up certification authority
-            Print-Text -type "ℹ️ " -content "Installer now configures certification authority."
             Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 30 -batch @(
                 @("Creating directory for CA",                  "mkdir -p -m 0755 /etc/$pkiName",                                                                                                                                                                                   "❗️ ERROR: Directory for CA couldn't be created!"), 
                 @("Creating directory tree for CA",             "mkdir -p -m 0755 $caPath $caPath/private $caPath/certs $caPath/newcerts $caPath/crl",                                                                                                                              "❗️ ERROR: Directory tree for CA couldn't be created!"), 
                 @("Setting up initial configuration (1/2)",     "cp /etc/pki/tls/openssl.cnf $caPath/openssl.default.cnf && chmod 0600 $caPath/openssl.default.cnf",                                                                                                                "❗️ ERROR: Initializiation of configuration of CA failed!"), 
                 @("Setting up initial configuration (2/2)",     "touch $caPath/index.txt && echo '01' > $caPath/serial",                                                                                                                                                            "❗️ ERROR: Initializiation of configuration of CA failed!"), 
-                @("Creating CA certificate",                    "openssl req -config $caPath/openssl.default.cnf -new -x509 -extensions v3_ca -keyout $caPath/private/ca.key -out $caPath/certs/ca.crt -days 1825 -subj '/C=$cn/ST=$st/L=$pl/O=$org CA/OU=$un/CN=$address' -nodes", "❗️ ERROR: CA certificate couldn't be created!"), 
-                @("Chaning permissions to certificates",        "chmod 0400 $caPath/private/ca.key",                                                                                                                                                                                "❗️ ERROR: Permisions of certificate file couldn't be changed!"), 
+                @("Creating CA certificate",                    "openssl req -config $caPath/openssl.default.cnf -new -x509 -extensions v3_ca -keyout $caPath/private/CA.key -out $caPath/certs/CA.crt -days 1825 -subj '/C=$cn/ST=$st/L=$pl/O=$org CA/OU=$un/CN=$address' -nodes", "❗️ ERROR: CA certificate couldn't be created!"), 
+                @("Chaning permissions to certificates",        "chmod 0400 $caPath/private/CA.key",                                                                                                                                                                                "❗️ ERROR: Permisions of certificate file couldn't be changed!"), 
                 @("Downloading certificates configuration",     "wget -O $caPath/openssl.server.cnf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/ssl.cnf",                                                                                                 "❗️ ERROR: Downloading of server certificates configuration failed!"), 
                 @("Updating confiugration",                     "sed -i 's#`${caPath}#$caPath#g' /$caPath/openssl.server.cnf",                                                                                                                                                      "❗️ ERROR: Configuration of server certificates couldn't be updated."), 
                 @("Creating request for SSL certificate",       "openssl req -config $caPath/openssl.server.cnf -new -nodes -keyout $caPath/private/$address.key -out $caPath/$address.csr -days 365 -subj '/C=$cn/ST=$st/L=$pl/O=$org CA/OU=$un/CN=$address'",                     "❗️ ERROR: SSL certificate couldn't be created!"), 
-                @("Granting permissions to certificates (1/2)", "chown root:apache $caPath/private/$orgName.key",                                                                                                                                                                   "❗️ ERROR: Permissions couldn't be granted!"), 
-                @("Granting permissions to certificates (2/2)", "chmod 0440 $caPath/private/$orgName.key",                                                                                                                                                                          "❗️ ERROR: Permissions couldn't be granted!"), 
+                @("Granting permissions to certificates (1/2)", "chown root:apache $caPath/private/$address.key",                                                                                                                                                                   "❗️ ERROR: Permissions couldn't be granted!"), 
+                @("Granting permissions to certificates (2/2)", "chmod 0440 $caPath/private/$address.key",                                                                                                                                                                          "❗️ ERROR: Permissions couldn't be granted!"), 
                 @("Signing SSL certificate",                    "openssl ca -batch -config $caPath/openssl.server.cnf -policy policy_anything -out $caPath/certs/$address.crt -infiles $caPath/$address.csr",                                                                       "❗️ ERROR: Certificate couldn't be signed!"),
                 @("Deleting request",                           "rm -f $caPath/$orgName.csr",                                                                                                                                                                                       "❗️ ERROR: File couldn't be deleted!")
             )
 
             # Set up web server
-            Print-Text -type "ℹ️ " -content "Installer now configures Apache web server."
             Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 50 -batch @(
                 @("Deleting default configuration",                       "rm -f /etc/httpd/conf/httpd.conf",                                                                                        "❗️ ERROR: Default configuration cannot be deleted!" ), 
-                @("Downloading configuration of web server",              "wget -O /etc/httpd/conf/httpd.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/httpd.conf"      "❗️ ERROR: Download of web server configuration failed!", 31 ), 
+                @("Installing SSL module for web server",                 "dnf install mod_ssl -y",                                                                                                  "❗️ ERROR: Installation of 'mod_ssl' for Apache web server failed!" ),
+                @("Downloading configuration of web server",              "wget -O /etc/httpd/conf/httpd.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/httpd.conf",     "❗️ ERROR: Download of web server configuration failed!"), 
                 @("Updating configuration (1/2)",                         "sed -i 's#`${www}#$WWWHome#g' /etc/httpd/conf/httpd.conf",                                                                "❗️ ERROR: Configuration of web server cannot be updated!" ), 
                 @("Updating configuration (2/2)",                         "sed -i 's#`${admin}#$admin#g' /etc/httpd/conf/httpd.conf",                                                                "❗️ ERROR: Configuration of web server cannot be updated!" ), 
                 @("Disabling 'Welcome' page",                             "sed -i '/^[^#]/ s/^/# /' /etc/httpd/conf.d/welcome.conf",                                                                 "❗️ ERROR: 'Welcome' page cannot be disabled!" ), 
@@ -164,15 +163,12 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
                 @("Updating configuration (1/4)",                         "sed -i 's#`${admin}#$admin#g' /etc/httpd/conf.d/$address.conf",                                                           "❗️ ERROR: Configuration of Simple Hosting web page cannot be updated!" ), 
                 @("Updating configuration (2/4)",                         "sed -i 's#`${www}#$WWWHome#g' /etc/httpd/conf.d/$address.conf",                                                           "❗️ ERROR: Configuration of Simple Hosting web page cannot be updated!" ), 
                 @("Updating configuration (3/4)",                         "sed -i 's#`${name}#$address#g' /etc/httpd/conf.d/$address.conf",                                                          "❗️ ERROR: Configuration of Simple Hosting web page cannot be updated!" ), 
-                @("Updating configuration (4/4)",                         "sed -i 's#`${ca}#$caPath#g' /etc/httpd/conf.d/$address.conf",                                                             "❗️ ERROR: Configuration of Simple Hosting web page cannot be updated!" ), 
-                @("Restarting web server",                                "systemctl restart httpd",                                                                                                 "❗️ ERROR: Apache2 web server cannot be restarted!" ), 
-                @("Installing SSL module for web server",                 "dnf install mod_ssl -y",                                                                                                  "❗️ ERROR: Installation of 'mod_ssl' for Apache web server failed!" ) 
+                @("Updating configuration (4/4)",                         "sed -i 's#`${ca}#$caPath#g' /etc/httpd/conf.d/$address.conf",                                                             "❗️ ERROR: Configuration of Simple Hosting web page cannot be updated!" ) 
             )
 
             # Set up web application
-            Print-Text -type "ℹ️ " -content "Installer now installs Simple Hosting web application."
             Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 70 -batch @(
-                @("Deleting default content of directory for web application", "rm -r -f $WWWHome",                                                                                                            "❗️ ERROR: Directory for web application couldn't be deleted!"), 
+                @("Deleting default content of web application",               "rm -r -f $WWWHome",                                                                                                            "❗️ ERROR: Directory for web application couldn't be deleted!"), 
                 @("Creating directory for web application",                    "mkdir -p $WWWHome",                                                                                                            "❗️ ERROR: Directory for web application couldn't be created!"), 
                 @("Granting web server permission to access directory",        "chown -R apache:apache $WWWHome",                                                                                              "❗️ ERROR: Cannot grant permission to Apache to access $WWWHome!"), 
                 @("Downloading application",                                   "wget -O $WWWHome/simple_hosting.zip https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/simple_hosting.zip", "❗️ ERROR: Application couldn't be downloaded!"), 
@@ -181,7 +177,6 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
             )
 
             # Set up DNS
-            Print-Text -type "ℹ️ " -content "Installer now configures DNS server"
             Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 80 -batch @(
                 @("Downloading configuration of DNS server", "wget -O /etc/named.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/named.conf.d", "❗️ ERROR: Configuration of DNS server couldn't be downloaded!"), 
                 @("Updating configuration (1/3)",                       "sed -i 's/`${name}/$address/g' /etc/named.conf",                                                  "❗️ ERROR: Configuration of DNS server couldn't be updated!"), 
@@ -191,7 +186,6 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
             )
 
             # Set up firewall
-            Print-Text -type "ℹ️ " -content "Installer now configures firewall rules"
             Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 90 -batch @(
                 @("Allowing HTTP through firewall",  "firewall-cmd --add-service=http --permanent",  "❗️ ERROR: Cannot add serivce HTTP to the firewall!"), 
                 @("Allowing HTTPS through firewall", "firewall-cmd --add-service=https --permanent", "❗️ ERROR: Cannot add serivce HTTPS to the firewall!"), 
@@ -200,7 +194,6 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
             )
 
             # Restart services
-            Print-Text -type "ℹ️ " -content "Installer now restarts services"
             Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 100 -batch @(
                 @("Starting HTTPd service", "systemctl start httpd.service", "❗️ ERROR: Starting of httpd service failed!"),
                 @("Configuring auto-start of HTTPd service", "systemctl enable httpd.service", "❗️ ERROR: Configuring of auto-start of httpd service failed!"),
