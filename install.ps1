@@ -144,7 +144,7 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
                 @("Chaning permissions to certificates",        "chmod 0400 $caPath/private/CA.key",                                                                                                                                                                                "❗️ ERROR: Permisions of certificate file couldn't be changed!"), 
                 @("Downloading certificates configuration",     "wget -O $caPath/openssl.server.cnf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/ssl.cnf",                                                                                                 "❗️ ERROR: Downloading of server certificates configuration failed!"), 
                 @("Updating confiugration",                     "sed -i 's#`${caPath}#$caPath#g' /$caPath/openssl.server.cnf",                                                                                                                                                      "❗️ ERROR: Configuration of server certificates couldn't be updated."), 
-                @("Creating request for SSL certificate",       "openssl req -config $caPath/openssl.server.cnf -new -nodes -keyout $caPath/private/$address.key -out $caPath/$address.csr -days 365 -subj '/C=$cn/ST=$st/L=$pl/O=$org CA/OU=$un/CN=$address'",                     "❗️ ERROR: SSL certificate couldn't be created!"), 
+                @("Creating request for SSL certificate",       "openssl req -config $caPath/openssl.server.cnf -new -nodes -keyout $caPath/private/$address.key -out $caPath/$address.csr -days 365 -subj '/C=$cn/ST=$st/L=$pl/O=$org/OU=$un/CN=$address'",                     "❗️ ERROR: SSL certificate couldn't be created!"), 
                 @("Granting permissions to certificates (1/2)", "chown root:apache $caPath/private/$address.key",                                                                                                                                                                   "❗️ ERROR: Permissions couldn't be granted!"), 
                 @("Granting permissions to certificates (2/2)", "chmod 0440 $caPath/private/$address.key",                                                                                                                                                                          "❗️ ERROR: Permissions couldn't be granted!"), 
                 @("Signing SSL certificate",                    "openssl ca -batch -config $caPath/openssl.server.cnf -policy policy_anything -out $caPath/certs/$address.crt -infiles $caPath/$address.csr",                                                                       "❗️ ERROR: Certificate couldn't be signed!"),
@@ -178,10 +178,7 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
 
             # Set up DNS
             Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 80 -batch @(
-                @("Downloading configuration of DNS server", "wget -O /etc/named.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/named.conf.d", "❗️ ERROR: Configuration of DNS server couldn't be downloaded!"), 
-                @("Updating configuration (1/3)",                       "sed -i 's/`${name}/$address/g' /etc/named.conf",                                                  "❗️ ERROR: Configuration of DNS server couldn't be updated!"), 
-                @("Updating configuration (2/3)",                       "sed -i 's/`${domain}/$address/g' /etc/named.conf",                                                "❗️ ERROR: Configuration of DNS server couldn't be updated!"), 
-                @("Updating configuration (3/3)",                       "sed -i 's/`${ip}/$ip/g' /etc/named.conf",                                                         "❗️ ERROR: Configuration of DNS server couldn't be updated!"), 
+                @("Downloading configuration of DNS server", "wget -O /etc/named.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/named.conf",   "❗️ ERROR: Configuration of DNS server couldn't be downloaded!"),  
                 @("Granting DNS server permission to access directory", "chown -R named:named /etc/named",                                                                 "❗️ ERROR: Cannot grant permission to named to access /etc/named!")
             )
 
@@ -202,6 +199,10 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
                 @("Configuring auto-start of DNS service", "systemctl enable named.service", "❗️ ERROR: Configuring of auto-start of named service failed!"),
                 @("Restarting DNS service", "systemctl restart named.service", "❗️ ERROR: Restarting of named service failed!")    
             )
+
+            # FIN
+            Remove-PSSession -Session $session
+            Exit-Script -start $startTime -code 0 -message "✅ Script successfully installed Simple Hosting on the server!" 
         }
         else{
             Write-Host $fail
