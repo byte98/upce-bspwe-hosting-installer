@@ -268,3 +268,46 @@ function Request-Command{
         Exit-Script -start $start -code $exitCode -message $exitMessage
     }
 }
+
+<#
+    .SYNOPSIS
+        Executes multiple commands.
+    .DESCRIPTION
+        Runs multiple commands in one batch. If execution
+        fails, whole script will be exited.
+#>
+function Run-Batch{
+    param(
+
+        # Array of arrays with commands which will be executed.
+        # Expected format: (('description 1', 'command 1', 'exit message 1'), ('description 2', 'command 2', 'exit message 2'),...)
+        [Parameter(Mandatory = $true)]
+        [string[][]]$batch,
+
+        # Session in which commands will be executed.
+        [Parameter(Mandatory = $true)]
+        [System.Management.Automation.Runspaces.PSSession]$session,
+
+        # Character displaying successfull execution of command.
+        [Parameter(Mandatory = $true)]
+        [string]$successStr,
+
+        # Character displaying fail of execution of command.
+        [Parameter(Mandatory = $true)]
+        [string]$failStr,
+
+        # Time of start of execution of script.
+        [Parameter(Mandatory = $true)]
+        [DateTime]$start,
+
+        # Exit code of first command (if failed).
+        [Parameter(Mandatory = $true)]
+        [int]$exitCode
+    )
+
+    $ex = $exitCode
+    foreach($entry in $batch){
+        Request-Command -description $entry[0] -command $entry[1] -exitMessage $entry[2] -exitCode $ex -session $session -start $start -successStr $successStr -failStr $failStr
+        $ex = $ex + 1
+    }
+}
