@@ -115,6 +115,7 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
             $pkiName =  "pki_$orgName"
             $caPath =   "/etc/$pkiName/CA"
             $conffile = "/etc/httpd/conf.d/$address.conf"
+            $adminNS =  $admin -replace '@', '.'
 
             # Resolve IP address of server
             Print-Process -text "Resolving IP address of the server"
@@ -178,8 +179,12 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
 
             # Set up DNS
             Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 80 -batch @(
-                @("Downloading configuration of DNS server", "wget -O /etc/named.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/named.conf",   "❗️ ERROR: Configuration of DNS server couldn't be downloaded!"),  
-                @("Granting DNS server permission to access directory", "chown -R named:named /etc/named",                                                                 "❗️ ERROR: Cannot grant permission to named to access /etc/named!")
+                @("Downloading configuration of DNS server",            "wget -O /etc/named.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/named.conf",           "❗️ ERROR: Configuration of DNS server couldn't be downloaded!"),  
+                @("Granting DNS server permission to access directory", "chown -R named:named /etc/named",                                                                                    "❗️ ERROR: Cannot grant permission to named to access /etc/named!"),
+                @("Downloading configuration of DNS name zone",         "wget -O /etc/named/$address.zone https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/named.zone",  "❗️ ERROR: Downloading of DNS zone file failed!"),
+                @("Updating configuration (1/3)",                       "sed -i 's#`${domain}#$address#g' /etc/named/$address.zone",                                                          "❗️ ERROR: DNS zone file cannot be updated!"),
+                @("Updating configuration (2/3)",                       "sed -i 's#`${admin}#$adminNS#g' /etc/named/$address.zone",                                                           "❗️ ERROR: DNS zone file cannot be updated!"),
+                @("Updating configuration (3/3)",                       "sed -i 's#`${ip}#$ip#g' /etc/named/$address.zone",                                                                   "❗️ ERROR: DNS zone file cannot be updated!")
             )
 
             # Set up firewall
