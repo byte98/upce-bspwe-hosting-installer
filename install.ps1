@@ -119,15 +119,23 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
 
             # Resolve IP address of server
             Print-Process -text "Resolving IP address of the server"
-            try {
-                $ip = [System.Net.Dns]::GetHostAddresses($serverName)[0].IPAddressToString
+            $check = [string]$hostname
+            if (Is-IPAddress -str $check){
+                $ip = $check
                 Write-Host $success
             }
-            catch {
-                Write-Host $fail
-                Remove-PSSession -Session $session
-                Exit-Script -start $startTime -code 12 -message "❗️ ERROR: Address of '$hostname' cannot be resolved!"
+            else{
+                try {
+                    $ip = [System.Net.Dns]::GetHostAddresses($serverName)[0].IPAddressToString
+                    Write-Host $success
+                }
+                catch {
+                    Write-Host $fail
+                    Remove-PSSession -Session $session
+                    Exit-Script -start $startTime -code 12 -message "❗️ ERROR: Address of '$hostname' cannot be resolved!"
+                }
             }
+            
 
             # Install required packages
             Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 20 -batch @(
@@ -157,8 +165,9 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
                 @("Deleting default configuration",                       "rm -f /etc/httpd/conf/httpd.conf",                                                                                        "❗️ ERROR: Default configuration cannot be deleted!" ), 
                 @("Installing SSL module for web server",                 "dnf install mod_ssl -y",                                                                                                  "❗️ ERROR: Installation of 'mod_ssl' for Apache web server failed!" ),
                 @("Downloading configuration of web server",              "wget -O /etc/httpd/conf/httpd.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/httpd.conf",     "❗️ ERROR: Download of web server configuration failed!"), 
-                @("Updating configuration (1/2)",                         "sed -i 's#`${www}#$WWWHome#g' /etc/httpd/conf/httpd.conf",                                                                "❗️ ERROR: Configuration of web server cannot be updated!" ), 
-                @("Updating configuration (2/2)",                         "sed -i 's#`${admin}#$admin#g' /etc/httpd/conf/httpd.conf",                                                                "❗️ ERROR: Configuration of web server cannot be updated!" ), 
+                @("Updating configuration (1/3)",                         "sed -i 's#`${www}#$WWWHome#g' /etc/httpd/conf/httpd.conf",                                                                "❗️ ERROR: Configuration of web server cannot be updated!" ), 
+                @("Updating configuration (2/3)",                         "sed -i 's#`${admin}#$admin#g' /etc/httpd/conf/httpd.conf",                                                                "❗️ ERROR: Configuration of web server cannot be updated!" ), 
+                @("Updating configuration (2/3)",                         "sed -i 's#`${name}#$address#g' /etc/httpd/conf/httpd.conf",                                                               "❗️ ERROR: Configuration of web server cannot be updated!" ), 
                 @("Disabling 'Welcome' page",                             "sed -i '/^[^#]/ s/^/# /' /etc/httpd/conf.d/welcome.conf",                                                                 "❗️ ERROR: 'Welcome' page cannot be disabled!" ), 
                 @("Downloading configuration of Simple Hosting web page", "wget -O /etc/httpd/conf.d/$address.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/root.conf", "❗️ ERROR: Downloading of configuration of main page failed!" ), 
                 @("Updating configuration (1/4)",                         "sed -i 's#`${admin}#$admin#g' /etc/httpd/conf.d/$address.conf",                                                           "❗️ ERROR: Configuration of Simple Hosting web page cannot be updated!" ), 
@@ -171,15 +180,18 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
             Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 70 -batch @(
                 @("Deleting default content of web application",               "rm -r -f $WWWHome",                                                                                                            "❗️ ERROR: Directory for web application couldn't be deleted!"), 
                 @("Creating directory for web application",                    "mkdir -p $WWWHome",                                                                                                            "❗️ ERROR: Directory for web application couldn't be created!"), 
-                @("Granting web server permission to access directory",        "chown -R apache:apache $WWWHome",                                                                                              "❗️ ERROR: Cannot grant permission to Apache to access $WWWHome!"), 
                 @("Downloading application",                                   "wget -O $WWWHome/simple_hosting.zip https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/simple_hosting.zip", "❗️ ERROR: Application couldn't be downloaded!"), 
                 @("Unzipping content",                                         "unzip -o $WWWHome/simple_hosting.zip -d $WWWHome",                                                                             "❗️ ERROR: Unzipping application failed!"), 
-                @("Deleting downloaded content",                               "rm -f $WWWHome/simple_hosting.zip",                                                                                            "❗️ ERROR: Downloaded content cannot be deleted!") 
+                @("Deleting downloaded content",                               "rm -f $WWWHome/simple_hosting.zip",                                                                                            "❗️ ERROR: Downloaded content cannot be deleted!"), 
+                @("Granting permissions to web server (1/3)",                  "chown -R apache:apache $WWWHome",                                                                                              "❗️ ERROR: Cannot grant permission to Apache to access $WWWHome!"), 
+                @("Granting permissions to web server (2/3)",                  "chmod +rx $WWWHome",                                                                                                           "❗️ ERROR: Cannot grant permission to Apache to access $WWWHome!"), 
+                @("Granting permissions to web server (3/3)",                  "chcon -R -t httpd_sys_content_t $WWWHome",                                                                                     "❗️ ERROR: Cannot grant permission to Apache to access $WWWHome!")
             )
 
             # Set up DNS
             Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 80 -batch @(
                 @("Downloading configuration of DNS server",            "wget -O /etc/named.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/named.conf",           "❗️ ERROR: Configuration of DNS server couldn't be downloaded!"),  
+                @("Updating configuration",                             "sed -i 's#`${domain}#$address#g' /etc/named.conf",                                                                   "❗️ ERROR: DNS configuration cannot be updated!"),
                 @("Granting DNS server permission to access directory", "chown -R named:named /etc/named",                                                                                    "❗️ ERROR: Cannot grant permission to named to access /etc/named!"),
                 @("Downloading configuration of DNS name zone",         "wget -O /etc/named/$address.zone https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/named.zone",  "❗️ ERROR: Downloading of DNS zone file failed!"),
                 @("Updating configuration (1/3)",                       "sed -i 's#`${domain}#$address#g' /etc/named/$address.zone",                                                          "❗️ ERROR: DNS zone file cannot be updated!"),

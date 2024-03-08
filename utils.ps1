@@ -309,3 +309,31 @@ function Run-Batch{
         $ex = $ex + 1
     }
 }
+
+<#
+    .SYNOPSIS
+        Check, whether input is IP address.
+    .DESCRIPTION
+        Checks input if it matches IP address format.
+        If yes, returns TRUE, otherwise returns FALSE.
+#>
+function Is-IPAddress{
+
+    param(
+
+        # String which will be checked.
+        [Parameter(Mandatory = $true)]
+        [string]$str
+    )
+    
+    $str = $str.Trim()
+    $reti = $true
+    try{
+        [ipaddress]$str
+    }
+    catch{
+        $reti = $false
+        Write-Host $_
+    }
+    return $reti
+}
