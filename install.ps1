@@ -199,8 +199,14 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
                 @("Updating configuration (3/3)",                       "sed -i 's#`${ip}#$ip#g' /etc/named/$address.zone",                                                                   "❗️ ERROR: DNS zone file cannot be updated!")
             )
 
-            # Set up firewall
+            # Set up SFTP
             Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 90 -batch @(
+                @("Downloading configuration of SFTP", "wget -O /etc/ssh/sshd_config.d/sftp.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/sftp.conf" ,"❗️ ERROR: Configuration of SFTP couldn't be downloaded!"),
+                @("Restarting SSH daemon",             "systemctl restart sshd",                                                                                                   "❗️ ERROR: Restarting of SSHd failed!")
+            )
+
+            # Set up firewall
+            Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 100 -batch @(
                 @("Allowing HTTP through firewall",  "firewall-cmd --add-service=http --permanent",  "❗️ ERROR: Cannot add serivce HTTP to the firewall!"), 
                 @("Allowing HTTPS through firewall", "firewall-cmd --add-service=https --permanent", "❗️ ERROR: Cannot add serivce HTTPS to the firewall!"), 
                 @("Allowing DNS through firewall",   "firewall-cmd --add-service=dns --permanent",   "❗️ ERROR: Cannot add serivce DNS to the firewall!"), 
@@ -208,7 +214,7 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
             )
 
             # Restart services
-            Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 100 -batch @(
+            Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 110 -batch @(
                 @("Starting HTTPd service", "systemctl start httpd.service", "❗️ ERROR: Starting of httpd service failed!"),
                 @("Configuring auto-start of HTTPd service", "systemctl enable httpd.service", "❗️ ERROR: Configuring of auto-start of httpd service failed!"),
                 @("Restarting HTTPd service", "systemctl restart httpd.service", "❗️ ERROR: Restarting of httpd service failed!"),
