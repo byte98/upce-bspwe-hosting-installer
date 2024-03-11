@@ -173,7 +173,7 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
                 @("Updating configuration (1/4)",                         "sed -i 's#`${admin}#$admin#g' /etc/httpd/conf.d/$address.conf",                                                           "❗️ ERROR: Configuration of Simple Hosting web page cannot be updated!" ), 
                 @("Updating configuration (2/4)",                         "sed -i 's#`${www}#$WWWHome#g' /etc/httpd/conf.d/$address.conf",                                                           "❗️ ERROR: Configuration of Simple Hosting web page cannot be updated!" ), 
                 @("Updating configuration (3/4)",                         "sed -i 's#`${name}#$address#g' /etc/httpd/conf.d/$address.conf",                                                          "❗️ ERROR: Configuration of Simple Hosting web page cannot be updated!" ), 
-                @("Updating configuration (4/4)",                         "sed -i 's#`${ca}#$caPath#g' /etc/httpd/conf.d/$address.conf",                                                             "❗️ ERROR: Configuration of Simple Hosting web page cannot be updated!" ) 
+                @("Updating configuration (4/4)",                         "sed -i 's#`${ca}#$caPath#g' /etc/httpd/conf.d/$address.conf",                                                             "❗️ ERROR: Configuration of Simple Hosting web page cannot be updated!" )
             )
 
             # Set up web application
@@ -185,7 +185,8 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
                 @("Deleting downloaded content",                               "rm -f $WWWHome/simple_hosting.zip",                                                                                            "❗️ ERROR: Downloaded content cannot be deleted!"), 
                 @("Granting permissions to web server (1/3)",                  "chown -R apache:apache $WWWHome",                                                                                              "❗️ ERROR: Cannot grant permission to Apache to access $WWWHome!"), 
                 @("Granting permissions to web server (2/3)",                  "chmod +rx $WWWHome",                                                                                                           "❗️ ERROR: Cannot grant permission to Apache to access $WWWHome!"), 
-                @("Granting permissions to web server (3/3)",                  "chcon -R -t httpd_sys_content_t $WWWHome",                                                                                     "❗️ ERROR: Cannot grant permission to Apache to access $WWWHome!")
+                @("Granting permissions to web server (3/3)",                  "chcon -R -t httpd_sys_content_t $WWWHome",                                                                                     "❗️ ERROR: Cannot grant permission to Apache to access $WWWHome!"),
+                @("Starting HTTPd service",                                    "systemctl start httpd.service",                                                                                                "❗️ ERROR: Starting of httpd service failed!")
             )
 
             # Set up DNS
@@ -200,13 +201,23 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
             )
 
             # Set up SFTP
-            Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 90 -batch @(
-                @("Downloading configuration of SFTP", "wget -O /etc/ssh/sshd_config.d/sftp.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/sftp.conf" ,"❗️ ERROR: Configuration of SFTP couldn't be downloaded!"),
-                @("Restarting SSH daemon",             "systemctl restart sshd",                                                                                                   "❗️ ERROR: Restarting of SSHd failed!")
-            )
+            #Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 90 -batch @(
+            #    @("Downloading configuration of SFTP", "wget -O /etc/ssh/sshd_config.d/sftp.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/sftp.conf" ,"❗️ ERROR: Configuration of SFTP couldn't be downloaded!"),
+            #    @("Restarting SSH daemon",             "systemctl restart sshd",                                                                                                   "❗️ ERROR: Restarting of SSHd failed!")
+            #)
+
+            # Install PHP
+            #Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 100 -batch @(
+            #    @("Installing PHP",                   "dnf install php -y",                                                                                                 "❗️ ERROR: PHP installation failed!")
+                #@("Downloading configuration of PHP", "wget -O /etc/httpd/conf.d/php.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/php.conf",  "❗️ ERROR: PHP configuration couldn't be downloaded!")
+            # )
+            #Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 110 -batch @(
+            #    @("Installing PHP", "dnf install php -y", "ERR PHP")
+            #)
+            Request-Command -description "Installing PHP" -command "dnf install php -y" -successStr $success -failStr $fail -exitCode 100 -session $session -exitMessage "❗️ ERROR: Installation of PHP failed!" -start $startTime
 
             # Set up firewall
-            Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 100 -batch @(
+            Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 110 -batch @(
                 @("Allowing HTTP through firewall",  "firewall-cmd --add-service=http --permanent",  "❗️ ERROR: Cannot add serivce HTTP to the firewall!"), 
                 @("Allowing HTTPS through firewall", "firewall-cmd --add-service=https --permanent", "❗️ ERROR: Cannot add serivce HTTPS to the firewall!"), 
                 @("Allowing DNS through firewall",   "firewall-cmd --add-service=dns --permanent",   "❗️ ERROR: Cannot add serivce DNS to the firewall!"), 
@@ -214,13 +225,12 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
             )
 
             # Restart services
-            Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 110 -batch @(
-                @("Starting HTTPd service", "systemctl start httpd.service", "❗️ ERROR: Starting of httpd service failed!"),
-                @("Configuring auto-start of HTTPd service", "systemctl enable httpd.service", "❗️ ERROR: Configuring of auto-start of httpd service failed!"),
-                @("Restarting HTTPd service", "systemctl restart httpd.service", "❗️ ERROR: Restarting of httpd service failed!"),
-                @("Starting DNS service", "systemctl start named.service", "❗️ ERROR: Starting of named service failed!"),
-                @("Configuring auto-start of DNS service", "systemctl enable named.service", "❗️ ERROR: Configuring of auto-start of named service failed!"),
-                @("Restarting DNS service", "systemctl restart named.service", "❗️ ERROR: Restarting of named service failed!")    
+            Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 120 -batch @(
+                @("Configuring auto-start of HTTPd service", "systemctl enable httpd.service",    "❗️ ERROR: Configuring of auto-start of httpd service failed!"),
+                @("Restarting HTTPd service",                "systemctl restart httpd.service",   "❗️ ERROR: Restarting of httpd service failed!"),
+                @("Starting DNS service",                    "systemctl start named.service",     "❗️ ERROR: Starting of named service failed!"),
+                @("Configuring auto-start of DNS service",   "systemctl enable named.service",    "❗️ ERROR: Configuring of auto-start of named service failed!"),
+                @("Restarting DNS service",                  "systemctl restart named.service",   "❗️ ERROR: Restarting of named service failed!")
             )
 
             # FIN
