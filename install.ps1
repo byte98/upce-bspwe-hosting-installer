@@ -200,21 +200,18 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
                 @("Updating configuration (3/3)",                       "sed -i 's#`${ip}#$ip#g' /etc/named/$address.zone",                                                                   "❗️ ERROR: DNS zone file cannot be updated!")
             )
 
-            # Set up SFTP
-            #Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 90 -batch @(
-            #    @("Downloading configuration of SFTP", "wget -O /etc/ssh/sshd_config.d/sftp.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/sftp.conf" ,"❗️ ERROR: Configuration of SFTP couldn't be downloaded!"),
-            #    @("Restarting SSH daemon",             "systemctl restart sshd",                                                                                                   "❗️ ERROR: Restarting of SSHd failed!")
-            #)
+            # Set up database
+            Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 90 -batch @(
+                @("Installing database (1/2)",                          "dnf install postgresql-server -y",                                                                                   "❗️ ERROR: Installation of database failed!"),
+                @("Installing database (2/2)",                          "dnf install postgresql-contrib -y",                                                                                  "❗️ ERROR: Installation of database failed!"),
+                @("Creating database cluster",                          "postgresql-setup --initdb",                                                                                          "❗️ ERROR: Database cluster initialization failed!"),
+                @("Starting database service",                          "systemctl start postgresql",                                                                                         "❗️ ERROR: Database service couldn't be started!")
+
+            )
 
             # Install PHP
-            #Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 100 -batch @(
-            #    @("Installing PHP",                   "dnf install php -y",                                                                                                 "❗️ ERROR: PHP installation failed!")
-                #@("Downloading configuration of PHP", "wget -O /etc/httpd/conf.d/php.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/php.conf",  "❗️ ERROR: PHP configuration couldn't be downloaded!")
-            # )
-            #Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 110 -batch @(
-            #    @("Installing PHP", "dnf install php -y", "ERR PHP")
-            #)
-            Request-Command -description "Installing PHP" -command "dnf install php -y" -successStr $success -failStr $fail -exitCode 100 -session $session -exitMessage "❗️ ERROR: Installation of PHP failed!" -start $startTime
+            Request-Command -description "Installing PHP (1/2)" -command "dnf install php -y" -successStr $success -failStr $fail -exitCode 100 -session $session -exitMessage "❗️ ERROR: Installation of PHP failed!" -start $startTime
+            Request-Command -description "Installing PHP (2/2)" -command "dnf install php-pgsql -y" -successStr $success -failStr $fail -exitCode 101 -session $session -exitMessage "❗️ ERROR: Installation of PHP failed!" -start $startTime
 
             # Set up firewall
             Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 110 -batch @(
@@ -226,11 +223,13 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
 
             # Restart services
             Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 120 -batch @(
-                @("Configuring auto-start of HTTPd service", "systemctl enable httpd.service",    "❗️ ERROR: Configuring of auto-start of httpd service failed!"),
-                @("Restarting HTTPd service",                "systemctl restart httpd.service",   "❗️ ERROR: Restarting of httpd service failed!"),
-                @("Starting DNS service",                    "systemctl start named.service",     "❗️ ERROR: Starting of named service failed!"),
-                @("Configuring auto-start of DNS service",   "systemctl enable named.service",    "❗️ ERROR: Configuring of auto-start of named service failed!"),
-                @("Restarting DNS service",                  "systemctl restart named.service",   "❗️ ERROR: Restarting of named service failed!")
+                @("Configuring auto-start of HTTPd service",    "systemctl enable httpd.service",  "❗️ ERROR: Configuring of auto-start of httpd service failed!"),
+                @("Restarting HTTPd service",                   "systemctl restart httpd.service", "❗️ ERROR: Restarting of httpd service failed!"),
+                @("Starting DNS service",                       "systemctl start named.service",   "❗️ ERROR: Starting of named service failed!"),
+                @("Configuring auto-start of DNS service",      "systemctl enable named.service",  "❗️ ERROR: Configuring of auto-start of named service failed!"),
+                @("Restarting DNS service",                     "systemctl restart named.service", "❗️ ERROR: Restarting of named service failed!"),
+                @("Configuring auto-start of database service", "systemctl enable postgresql",     "❗️ ERROR: Configuring of auto-start of database service failed!"),
+                @("Restarting database service",                "systemctl restart postgresql",    "❗️ ERROR: Restarting of database service failed!")
             )
 
             # FIN
