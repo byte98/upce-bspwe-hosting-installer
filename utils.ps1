@@ -337,3 +337,38 @@ function Is-IPAddress{
     }
     return $reti
 }
+
+
+<#
+    .SYNOPSIS
+        Gets password from user.
+    .DESCRIPTION
+        Gets password from user. This function waits for confirmation
+        of password and returns password as plain-text.
+#>
+function Get-Password {
+
+    param(
+        # Prompt which will be displayed.
+        [Parameter(Mandatory = $true)]
+        [string]$prompt,
+
+        # Prompt which will be displayed for password confirmation.
+        [Parameter(Mandatory = $true)]
+        [string]$again
+    )
+
+    do{
+        $secured1 = Read-Host -Prompt $prompt -AsSecureString
+        $secured2 = Read-Host -Prompt $again -AsSecureString
+        $plain1 = (New-Object PSCredential 0, $secured1).GetNetworkCredential().Password
+        $plain2 = (New-Object PSCredential 0, $secured2).GetNetworkCredential().Password
+        if ($plain1 -ne $plain2){
+            Print-Text -type "⛔️" -content "Entered passwords does NOT match! Please, try it again."
+        }
+    }
+    while ($plain1 -ne $plain2)
+   
+    return $plain1
+
+}

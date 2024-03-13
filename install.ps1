@@ -37,6 +37,9 @@ New-Variable -Name OutWidth -Value 64 -Option Constant
 # Default location of web application on server
 New-Variable -Name WWWHome -Value "/var/www/html" -Option Constant
 
+# Default location of web ftp application on server
+New-Variable -Name WFTPHome -Value "/var/www/webftp" -Option Constant
+
 # Import utility file
 . ".\utils.ps1"
 
@@ -110,6 +113,9 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
             $cn =       Read-Host -Prompt "Code of country (example: US)                                         "
             $st =       Read-Host -Prompt "Name of state or province (example: California)                       "
             $pl =       Read-Host -Prompt "Name of locality (example: Los Angeles)                               "
+            $dbuser =   Read-Host -Prompt "Name of user with administrator rights to the database                "
+            $dbpwd =    Get-Password -prompt "Password of user with administrator rights to the database            " -again "Password of user with administrator rights to the database again      "
+            $dbname =   $address -replace '[^a-zA-Z0-9]', '_'
             $orgName =  $org -replace '\s', '' -replace '\W', '' 
             $orgName =  $orgName.ToLower()
             $pkiName =  "pki_$orgName"
@@ -139,8 +145,10 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
 
             # Install required packages
             Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 20 -batch @(
-                @("Installing Apache web server", "dnf install httpd -y",    "❗️ ERROR: Installation of web server failed!"),
-                @("Installing DNS server", "dnf install bind bind-utils -y", "❗️ ERROR: Installation of DNS server failed!")
+                @("Installing Apache web server", "dnf install httpd -y",                 "❗️ ERROR: Installation of web server failed!"),
+                @("Installing DNS server",        "dnf install bind bind-utils -y",       "❗️ ERROR: Installation of DNS server failed!"),
+                #@("Installing Docker",            "dnf install docker docker-compose -y", "❗️ ERROR: Installation of Docker failed!"),
+                @("Starting Docker service",      "systemctl start docker",               "❗️ ERROR: Docker service couldn't be started!")
             )
 
             # Set up certification authority
@@ -205,16 +213,42 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
                 @("Installing database (1/2)",                          "dnf install postgresql-server -y",                                                                                   "❗️ ERROR: Installation of database failed!"),
                 @("Installing database (2/2)",                          "dnf install postgresql-contrib -y",                                                                                  "❗️ ERROR: Installation of database failed!"),
                 @("Creating database cluster",                          "postgresql-setup --initdb",                                                                                          "❗️ ERROR: Database cluster initialization failed!"),
-                @("Starting database service",                          "systemctl start postgresql",                                                                                         "❗️ ERROR: Database service couldn't be started!")
-
+                @("Starting database service",                          "systemctl start postgresql",                                                                                         "❗️ ERROR: Database service couldn't be started!"),
+                @("Creating administrator ",                            "sudo -u postgres psql -c `"CREATE ROLE $dbuser SUPERUSER LOGIN PASSWORD '$dbpwd';`"",                                "❗️ ERROR: Administrator of database couldn't be created!"),
+                @("Creating database",                                  "sudo -u postgres psql -c `"CREATE DATABASE $dbname OWNER $dbuser;`"",                                               "❗️ ERROR: Database couldn't be created!"),
+                @("Downloading structure of database",                  "wget -O ~/database.sql https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/database.sql",          "❗️ ERROR: Database structure couldn't be downloaded!"),
+                @("Creating structure of database",                     "sudo -u postgres psql -U $dbuser -d $dbname -a -f ~/database.sql",                                                  "❗️ ERROR: Database structure creation failed!"),
+                @("Deleting file with structure of database",           "rm -f ~/database.sql",                                                                                               "❗️ ERROR: File couldn't be deleted!")
             )
 
             # Install PHP
             Request-Command -description "Installing PHP (1/2)" -command "dnf install php -y" -successStr $success -failStr $fail -exitCode 100 -session $session -exitMessage "❗️ ERROR: Installation of PHP failed!" -start $startTime
             Request-Command -description "Installing PHP (2/2)" -command "dnf install php-pgsql -y" -successStr $success -failStr $fail -exitCode 101 -session $session -exitMessage "❗️ ERROR: Installation of PHP failed!" -start $startTime
 
-            # Set up firewall
+            # Set up Web FTP
+            <#
             Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 110 -batch @(
+                @("Creating directory for web ftp",             "mkdir $WFTPHome",                                                                                                                                                                                                "❗️ ERROR: Directory for web ftp couldn't be created!"),
+                @("Downloading web ftp application",            "wget -O $WFTPHome/docker-compose.yml https://downloads.filestash.app/latest/docker-compose.yml",                                                                                                                 "❗️ ERROR: Web ftp application couldn't be downloaded!"),
+                @("Building web ftp application",               "docker-compose -f $WFTPHome/docker-compose.yml up -d",                                                                                                                                                           "❗️ ERROR: Web ftp application couldn't be built!"),
+                @("Downloading configuration of web ftp",       "wget -O /etc/httpd/conf.d/webftp.$address.conf https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/webftp.conf",                                                                               "❗️ ERROR: Configuration of web ftp couldn't be downloaded!"),
+                @("Updating configuration (1/4)",               "sed -i 's#`${admin}#$admin#g' /etc/httpd/conf.d/webftp.$address.conf",                                                                                                                                           "❗️ ERROR: Configuration of web ftp cannot be updated!" ), 
+                @("Updating configuration (2/4)",               "sed -i 's#`${www}#$WFTPHome#g' /etc/httpd/conf.d/webftp.$address.conf",                                                                                                                                          "❗️ ERROR: Configuration of web ftp cannot be updated!" ), 
+                @("Updating configuration (3/4)",               "sed -i 's#`${name}#$address#g' /etc/httpd/conf.d/webftp.$address.conf",                                                                                                                                          "❗️ ERROR: Configuration of web ftp cannot be updated!" ), 
+                @("Updating configuration (4/4)",               "sed -i 's#`${ca}#$caPath#g' /etc/httpd/conf.d/webftp.$address.conf",                                                                                                                                             "❗️ ERROR: Configuration of web ftp cannot be updated!" ),
+                @("Creating request for SSL certificate",       "openssl req -config $caPath/openssl.server.cnf -new -nodes -keyout $caPath/private/webftp.$address.key -out $caPath/webftp.$address.csr -days 365 -subj '/C=$cn/ST=$st/L=$pl/O=$org/OU=$un/CN=webftp.$address'", "❗️ ERROR: SSL certificate couldn't be created!"), 
+                @("Granting permissions to certificates (1/2)", "chown root:apache $caPath/private/webftp.$address.key",                                                                                                                                                          "❗️ ERROR: Permissions couldn't be granted!"), 
+                @("Granting permissions to certificates (2/2)", "chmod 0440 $caPath/private/webftp.$address.key",                                                                                                                                                                 "❗️ ERROR: Permissions couldn't be granted!"), 
+                @("Signing SSL certificate",                    "openssl ca -batch -config $caPath/openssl.server.cnf -policy policy_anything -out $caPath/certs/webftp.$address.crt -infiles $caPath/webftp.$address.csr",                                                       "❗️ ERROR: Certificate couldn't be signed!"),
+                @("Deleting request",                           "rm -f $caPath/webftp.$orgName.csr",                                                                                                                                                                              "❗️ ERROR: File couldn't be deleted!"),
+                @("Granting permissions to web server (1/3)",   "chown -R apache:apache $WFTPHome",                                                                                                                                                                               "❗️ ERROR: Cannot grant permission to Apache to access web ftp!"), 
+                @("Granting permissions to web server (2/3)",   "chmod +rx $WFTPHome",                                                                                                                                                                                            "❗️ ERROR: Cannot grant permission to Apache to access web ftp!"), 
+                @("Granting permissions to web server (3/3)",   "chcon -R -t httpd_sys_content_t $WFTPHome",                                                                                                                                                                      "❗️ ERROR: Cannot grant permission to Apache to access web ftp!"),
+                @("Deleting downloaded archive",                "rm -f $WFTPHome/webftp.zip",                                                                                                                                                                                     "❗️ ERROR: Downloaded archive couldn't be deleted!")
+            )#>
+
+            # Set up firewall
+            Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 120 -batch @(
                 @("Allowing HTTP through firewall",  "firewall-cmd --add-service=http --permanent",  "❗️ ERROR: Cannot add serivce HTTP to the firewall!"), 
                 @("Allowing HTTPS through firewall", "firewall-cmd --add-service=https --permanent", "❗️ ERROR: Cannot add serivce HTTPS to the firewall!"), 
                 @("Allowing DNS through firewall",   "firewall-cmd --add-service=dns --permanent",   "❗️ ERROR: Cannot add serivce DNS to the firewall!"), 
@@ -222,7 +256,7 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
             )
 
             # Restart services
-            Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 120 -batch @(
+            Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 130 -batch @(
                 @("Configuring auto-start of HTTPd service",    "systemctl enable httpd.service",  "❗️ ERROR: Configuring of auto-start of httpd service failed!"),
                 @("Restarting HTTPd service",                   "systemctl restart httpd.service", "❗️ ERROR: Restarting of httpd service failed!"),
                 @("Starting DNS service",                       "systemctl start named.service",   "❗️ ERROR: Starting of named service failed!"),
