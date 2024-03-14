@@ -146,9 +146,9 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
             # Install required packages
             Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 20 -batch @(
                 @("Installing Apache web server", "dnf install httpd -y",                 "❗️ ERROR: Installation of web server failed!"),
-                @("Installing DNS server",        "dnf install bind bind-utils -y",       "❗️ ERROR: Installation of DNS server failed!"),
+                @("Installing DNS server",        "dnf install bind bind-utils -y",       "❗️ ERROR: Installation of DNS server failed!")
                 #@("Installing Docker",            "dnf install docker docker-compose -y", "❗️ ERROR: Installation of Docker failed!"),
-                @("Starting Docker service",      "systemctl start docker",               "❗️ ERROR: Docker service couldn't be started!")
+                #@("Starting Docker service",      "systemctl start docker",               "❗️ ERROR: Docker service couldn't be started!")
             )
 
             # Set up certification authority
@@ -215,16 +215,22 @@ if (Get-UserConfirmation){ # User declared SSH installed and running
                 @("Creating database cluster",                          "postgresql-setup --initdb",                                                                                          "❗️ ERROR: Database cluster initialization failed!"),
                 @("Starting database service",                          "systemctl start postgresql",                                                                                         "❗️ ERROR: Database service couldn't be started!"),
                 @("Creating administrator ",                            "sudo -u postgres psql -c `"CREATE ROLE $dbuser SUPERUSER LOGIN PASSWORD '$dbpwd';`"",                                "❗️ ERROR: Administrator of database couldn't be created!"),
-                @("Creating database",                                  "sudo -u postgres psql -c `"CREATE DATABASE $dbname OWNER $dbuser;`"",                                               "❗️ ERROR: Database couldn't be created!"),
-                @("Downloading structure of database",                  "wget -O ~/database.sql https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/database.sql",          "❗️ ERROR: Database structure couldn't be downloaded!"),
-                @("Creating structure of database",                     "sudo -u postgres psql -U $dbuser -d $dbname -a -f ~/database.sql",                                                  "❗️ ERROR: Database structure creation failed!"),
-                @("Deleting file with structure of database",           "rm -f ~/database.sql",                                                                                               "❗️ ERROR: File couldn't be deleted!")
+                @("Creating database",                                  "sudo -u postgres psql -c `"CREATE DATABASE $dbname OWNER $dbuser;`"",                                                "❗️ ERROR: Database couldn't be created!"),
+                @("Downloading structure of database",                  "wget -O /var/database.sql https://github.com/byte98/upce-bspwe-hosting/releases/latest/download/database.sql",       "❗️ ERROR: Database structure couldn't be downloaded!"),
+                @("Creating structure of database",                     "sudo -u postgres psql -d $dbname -a -f /var/database.sql",                                                           "❗️ ERROR: Database structure creation failed!"),
+                @("Deleting file with structure of database",           "rm -f /var/database.sql",                                                                                            "❗️ ERROR: File couldn't be deleted!")
             )
 
             # Install PHP
-            Request-Command -description "Installing PHP (1/2)" -command "dnf install php -y" -successStr $success -failStr $fail -exitCode 100 -session $session -exitMessage "❗️ ERROR: Installation of PHP failed!" -start $startTime
-            Request-Command -description "Installing PHP (2/2)" -command "dnf install php-pgsql -y" -successStr $success -failStr $fail -exitCode 101 -session $session -exitMessage "❗️ ERROR: Installation of PHP failed!" -start $startTime
-
+            Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 100 -batch @(
+                @("Installing PHP (1/2)",         "dnf install php -y",                                 "❗️ ERROR: Installation of PHP failed!"),
+                @("Installing PHP (2/2)",         "dnf install php-devel -y",                           "❗️ ERROR: Installation of PHP failed!"),
+                @("Installing PHP modules (1/4)", "dnf install php-pgsql -y",                           "❗️ ERROR: Installation of PHP modules failed!"),
+                @("Installing PHP modules (2/4)", "dnf install php-pear -y",                            "❗️ ERROR: Installation of PHP modules failed!"),
+                @("Installing PHP modules (3/4)", "dnf install libyaml-devel -y",                       "❗️ ERROR: Installation of PHP modules failed!"),
+                @("Installing PHP modules (4/4)", "printf `"\n`" | pecl install yaml",                  "❗️ ERROR: Installation of PHP modules failed!"),
+                @("Updating configuration",       "echo `"\n`"extension=yaml.so`"\n`" >> /etc/php.ini", "❗️ ERROR: Configuration of PHP couldn't be updated!")
+            )
             # Set up Web FTP
             <#
             Run-Batch -session $session -start $startTime -successStr $success -failStr $fail -exitCode 110 -batch @(
