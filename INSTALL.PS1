@@ -41,7 +41,7 @@ New-Variable -Name WWWHome -Value "/var/www/html" -Option Constant
 New-Variable -Name WFTPHome -Value "/var/www/webftp" -Option Constant
 
 # Import utility file
-. ".\utils.ps1"
+. ".\UTILS.PS1"
 
 # Check if there is .NET installed
 Print-Process -text "Checking, whether .NET is installed"
